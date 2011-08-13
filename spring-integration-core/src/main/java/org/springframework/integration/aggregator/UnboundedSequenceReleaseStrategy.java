@@ -78,7 +78,7 @@ public class UnboundedSequenceReleaseStrategy extends
 	@Override
 	public void setReleasePartialSequences(boolean releasePartialSequences) {
 		if (!releasePartialSequences) {
-			throw new UnsupportedOperationException("Release Partial Sequences Must be True");
+			throw new IllegalArgumentException("Release Partial Sequences Must be True");
 		}
 	}
 
