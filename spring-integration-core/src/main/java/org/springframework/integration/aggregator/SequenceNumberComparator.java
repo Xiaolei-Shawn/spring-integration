@@ -16,6 +16,7 @@ package org.springframework.integration.aggregator;
 import java.util.Comparator;
 
 import org.springframework.integration.Message;
+import org.springframework.integration.MessageHeaders;
 
 /**
  * @author Dave Syer
@@ -25,14 +26,34 @@ import org.springframework.integration.Message;
  */
 public class SequenceNumberComparator implements Comparator<Message<?>> {
 
+	private String sequenceHeader;
+
+	/**
+	 * Constructs a SequenceNumberComparator that compares the standard
+	 * {@link MessageHeaders.SEQUENCE_NUMBER} header.
+	 */
+	public SequenceNumberComparator() {
+	}
+
+	/**
+	 * Constructs a SequenceNumberComparator that compares a custom
+	 * sequence number header; the header value must be an Integer.
+	 * @param header
+	 */
+	public SequenceNumberComparator(String header) {
+		this.sequenceHeader = header;
+	}
+
 	/**
 	 * If both messages have a sequence number then compare that, otherwise if one has a sequence number and the other
 	 * doesn't then the numbered message comes first, or finally of neither has a sequence number then they are equal in
 	 * rank.
 	 */
 	public int compare(Message<?> o1, Message<?> o2) {
-		Integer sequenceNumber1 = o1.getHeaders().getSequenceNumber();
-		Integer sequenceNumber2 = o2.getHeaders().getSequenceNumber();
+		Integer sequenceNumber1 = this.sequenceHeader == null ? o1.getHeaders().getSequenceNumber()
+									: (Integer) o1.getHeaders().get(this.sequenceHeader);
+		Integer sequenceNumber2 = this.sequenceHeader == null ? o2.getHeaders().getSequenceNumber()
+									: (Integer) o2.getHeaders().get(this.sequenceHeader);
 		if (sequenceNumber1 == sequenceNumber2) {
 			return 0;
 		}

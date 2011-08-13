@@ -10,7 +10,7 @@
 		<config>src/test/java/org/springframework/integration/gateway/GatewayInterfaceTest-context.xml</config>
 		<config>src/test/java/org/springframework/integration/gateway/InnerGatewayWithChainTests-context.xml</config>
 		<config>src/test/java/org/springframework/integration/history/annotated-config.xml</config>
-		<config>src/test/java/org/springframework/integration/aggregator/config.xml</config>
+		<config>src/test/java/org/springframework/integration/aggregator/UnboundedResequencerTests-context.xml</config>
 	</configs>
 	<configSets>
 	</configSets>

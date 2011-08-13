@@ -35,6 +35,7 @@ import java.util.List;
  * @author Marius Bogoevici
  * @author Dave Syer
  * @author Iwein Fuld
+ * @author Gary Russell
  */
 public class SequenceSizeReleaseStrategy implements ReleaseStrategy {
 
@@ -62,6 +63,13 @@ public class SequenceSizeReleaseStrategy implements ReleaseStrategy {
 		this.releasePartialSequences = releasePartialSequences;
 	}
 
+	/**
+	 * @param comparator the comparator to set
+	 */
+	protected void setComparator(Comparator<Message<?>> comparator) {
+		this.comparator = comparator;
+	}
+
 	public boolean canRelease(MessageGroup messages) {
 		if (releasePartialSequences) {
 			Collection<Message<?>> unmarked = messages.getUnmarked();
@@ -71,15 +79,26 @@ public class SequenceSizeReleaseStrategy implements ReleaseStrategy {
 				}
 				List<Message<?>> sorted = new ArrayList<Message<?>>(unmarked);
 				Collections.sort(sorted, comparator);
-				int tail = sorted.get(0).getHeaders().getSequenceNumber() - 1;
-				boolean release = tail == messages.getMarked().size();
-				if (logger.isTraceEnabled() && release) {
-					logger.trace("Release imminent because tail [" + tail + "] is next in line.");
-				}
+				boolean release = canReleasePartial(messages, sorted);
 				return release;
 			}
 		}
 		return messages.isComplete();
+	}
+
+	/**
+	 * @param messages
+	 * @param sorted
+	 * @return
+	 */
+	protected boolean canReleasePartial(MessageGroup messages,
+			List<Message<?>> sorted) {
+		int tail = sorted.get(0).getHeaders().getSequenceNumber() - 1;
+		boolean release = tail == messages.getMarked().size();
+		if (logger.isTraceEnabled() && release) {
+			logger.trace("Release imminent because tail [" + tail + "] is next in line.");
+		}
+		return release;
 	}
 
 }
