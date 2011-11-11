@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-http="http://www.springframework.org/schema/integration/http"
+	xsi:schemaLocation="http://www.springframework.org/schema/integration/http http://www.springframework.org/schema/integration/http/spring-integration-http-2.1.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<int:channel id="ch1" />
+
+	<int-http:outbound-gateway url="http://localhost:18080/it/" request-channel="ch1" reply-channel="ch2"
+		request-factory="requestFactory"/>
+
+	<bean id="requestFactory" class="org.springframework.integration.http.outbound.CookieTests$RequestFactory" />
+
+	<int:chain input-channel="ch2" output-channel="ch3">
+		<int:transformer expression="'Hello, again!'"/>
+		<int:header-enricher>
+			<int:header name="save-set-cookie" expression="headers['Set-cookie']" />
+		</int:header-enricher>
+	</int:chain>
+
+	<int-http:outbound-gateway url="http://localhost:18080/it/" request-channel="ch3" reply-channel="ch4"
+		request-factory="requestFactory"/>
+
+	<int:chain input-channel="ch4" output-channel="ch5">
+		<int:transformer expression="'Hello, once more!'"/>
+		<int:header-enricher>
+			<int:header name="Cookie" expression="headers['save-set-cookie']"/>
+		</int:header-enricher>
+	</int:chain>
+
+	<int-http:outbound-gateway url="http://localhost:18080/it/" request-channel="ch5" reply-channel="ch6"
+		request-factory="requestFactory"/>
+
+	<int:channel id="ch6">
+		<int:queue/>
+	</int:channel>
+
+</beans>

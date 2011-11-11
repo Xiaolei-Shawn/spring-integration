@@ -153,6 +153,21 @@ public final class MessageHeaders implements Map<String, Object>, Serializable {
 		return (T) value;
 	}
 
+	/**
+	 * Returns the actual header key using a case-insensitive match.
+	 * @param key The key in any case.
+	 * @return The actual key.
+	 */
+	public String getKeyIgnoreCase(Object key) {
+		for (Entry<String, Object> entry : headers.entrySet()) {
+			if (key instanceof String
+					&& entry.getKey().equalsIgnoreCase((String) key)) {
+				return entry.getKey();
+			}
+		}
+		return null;
+	}
+
 	public int hashCode() {
 		return this.headers.hashCode();
 	}

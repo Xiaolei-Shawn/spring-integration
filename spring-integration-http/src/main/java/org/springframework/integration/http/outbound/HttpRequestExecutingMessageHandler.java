@@ -22,8 +22,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.transform.Source;
 
@@ -44,6 +49,7 @@ import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.integration.Message;
 import org.springframework.integration.MessageHandlingException;
+import org.springframework.integration.MessageHeaders;
 import org.springframework.integration.MessagingException;
 import org.springframework.integration.core.MessageHandler;
 import org.springframework.integration.handler.AbstractReplyProducingMessageHandler;
@@ -83,10 +89,12 @@ public class HttpRequestExecutingMessageHandler extends AbstractReplyProducingMe
 	private volatile Class<?> expectedResponseType;
 
 	private volatile boolean extractPayload = true;
-	
+
 	private volatile boolean extractPayloadExplicitlySet = false;
 
 	private volatile String charset = "UTF-8";
+
+	private volatile boolean mapSetCookie = true; //TODO: DEFAULT FALSE
 
 	private volatile HeaderMapper<HttpHeaders> headerMapper = DefaultHttpHeaderMapper.outboundMapper();
 
@@ -95,7 +103,9 @@ public class HttpRequestExecutingMessageHandler extends AbstractReplyProducingMe
 	private final RestTemplate restTemplate;
 
 	private final StandardEvaluationContext evaluationContext;
-	
+
+	private final Pattern cookieNameExtractorPattern = Pattern.compile("([^=]+)", Pattern.CASE_INSENSITIVE);
+
 
 	/**
 	 * Create a handler that will send requests to the provided URI.
@@ -282,7 +292,7 @@ public class HttpRequestExecutingMessageHandler extends AbstractReplyProducingMe
 			return (HttpEntity<?>) payload;
 		}
 		HttpHeaders httpHeaders = new HttpHeaders();
-		this.headerMapper.fromHeaders(message.getHeaders(), httpHeaders);
+		this.mapHeaders(message, httpHeaders);
 		if (!shouldIncludeRequestBody()) {
 			return new HttpEntity<Object>(httpHeaders);
 		}
@@ -303,12 +313,61 @@ public class HttpRequestExecutingMessageHandler extends AbstractReplyProducingMe
 
 	private HttpEntity<?> createHttpEntityFromMessage(Message<?> message) {
 		HttpHeaders httpHeaders = new HttpHeaders();
-		this.headerMapper.fromHeaders(message.getHeaders(), httpHeaders);
+		this.mapHeaders(message, httpHeaders);
 		if (shouldIncludeRequestBody()) {
 			httpHeaders.setContentType(new MediaType("application", "x-java-serialized-object"));
 			return new HttpEntity<Object>(message, httpHeaders);
 		}
 		return new HttpEntity<Object>(httpHeaders);
+	}
+
+	private void mapHeaders(Message<?> message, HttpHeaders httpHeaders) {
+		MessageHeaders messageHeaders = message.getHeaders();
+		this.headerMapper.fromHeaders(messageHeaders, httpHeaders);
+		if (this.mapSetCookie) {
+			// Set-Cookie is not mapped by default mapper, see if it is in MessageHeaders
+			String setCookieHeaderKey = messageHeaders.getKeyIgnoreCase("Set-Cookie");
+			if (setCookieHeaderKey != null) {
+				try {
+					String newCookie = ((String) messageHeaders.get(setCookieHeaderKey)).trim();
+					List<String> existingCookies = new ArrayList<String>();
+					if (newCookie != null) {
+						Matcher matcher = this.cookieNameExtractorPattern.matcher(newCookie);
+						if (matcher.find()) {
+							String newCookieName = matcher.group(1).toLowerCase();
+							if (httpHeaders.containsKey("Cookie")) {
+								existingCookies = httpHeaders.get("Cookie");
+							}
+							Set<String> uniqueCookies = new HashSet<String>(existingCookies);
+							Iterator<String> iterator = uniqueCookies.iterator();
+							while (iterator.hasNext()) {
+								String value = iterator.next();
+								if (value.toLowerCase().startsWith(newCookieName)) {
+									iterator.remove();
+									if (logger.isDebugEnabled()) {
+										logger.debug("Replaced stale Cookie: " + value);
+									}
+								}
+							}
+							uniqueCookies.add(newCookie);
+							List<String> revisedCookies = new ArrayList<String>(uniqueCookies);
+							httpHeaders.put("Cookie", revisedCookies);
+							if (logger.isDebugEnabled()) {
+								logger.debug("Mapped Set-Cookie: to Cookie: " + newCookie);
+							}
+						} else {
+							if (logger.isDebugEnabled()) {
+								logger.debug("Set-Cookie: " + newCookie + "header ignored - can't extract name");
+							}
+						}
+					} else {
+						logger.debug("Null Set-Cookie: header ignored");
+					}
+				} catch (Exception e) {
+					logger.warn("Could not map Set-Cookie to Cookie", e);
+				}
+			}
+		}
 	}
 
 	@SuppressWarnings("unchecked")
