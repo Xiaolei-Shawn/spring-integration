@@ -21,6 +21,7 @@ import static org.junit.Assert.assertNull;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.integration.Message;
 import org.springframework.integration.MessagingException;
 import org.springframework.integration.core.MessageHandler;
@@ -46,6 +47,36 @@ public class CircuitBreakerTests {
 				}
 			}
 		};
+		handler = (MessageHandler) bpp.postProcessAfterInitialization(handler, "aBean");
+		MessagingException e = handle(handler);
+		assertEquals("In handler", e.getMessage());
+		e = handle(handler);
+		assertEquals("In handler", e.getMessage());
+		e = handle(handler);
+		assertEquals("Circuit Breaker is Open for aBean", e.getMessage());
+		Thread.sleep(110);
+		e = handle(handler);
+		assertEquals("In handler", e.getMessage());
+		e = handle(handler);
+		assertEquals("Circuit Breaker is Open for aBean", e.getMessage());
+		Thread.sleep(110);
+		e = handle(handler);
+		assertNull(e);
+	}
+
+	@Test
+	public void testAlreadyProxy() throws Exception {
+		CircuitBreakerBeanPostProcessor bpp = new CircuitBreakerBeanPostProcessor(2, 100);
+		bpp.setBeanNamePatterns(new String[] {"*"});
+		final AtomicInteger counter = new AtomicInteger(3);
+		MessageHandler handler = new MessageHandler() {
+			public void handleMessage(Message<?> message) throws MessagingException {
+				if (counter.decrementAndGet() >= 0) {
+					throw new MessagingException("In handler");
+				}
+			}
+		};
+		handler = (MessageHandler) new ProxyFactory(handler).getProxy();
 		handler = (MessageHandler) bpp.postProcessAfterInitialization(handler, "aBean");
 		MessagingException e = handle(handler);
 		assertEquals("In handler", e.getMessage());
