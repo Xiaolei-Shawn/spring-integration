@@ -25,6 +25,7 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionListener;
 
 import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Command;
 import com.rabbitmq.client.ConfirmListener;
 import com.rabbitmq.client.Consumer;
 import com.rabbitmq.client.FlowListener;
@@ -136,7 +137,7 @@ public class StubRabbitConnectionFactory implements ConnectionFactory {
 			return null;
 		}
 
-		public void setReturnListener(ReturnListener listener) {
+		public void addReturnListener(ReturnListener listener) {
 		}
 
 		public FlowListener getFlowListener() {
@@ -354,8 +355,59 @@ public class StubRabbitConnectionFactory implements ConnectionFactory {
 		public void asyncRpc(Method method) throws IOException {
 		}
 
-		public Method rpc(Method method) throws IOException {
+		public Command rpc(Method method) throws IOException {
 			return null;
+		}
+
+		public boolean removeReturnListener(ReturnListener listener) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public void clearReturnListeners() {
+			// TODO Auto-generated method stub
+			
+		}
+
+		public void addFlowListener(FlowListener listener) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		public boolean removeFlowListener(FlowListener listener) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public void clearFlowListeners() {
+			// TODO Auto-generated method stub
+			
+		}
+
+		public void addConfirmListener(ConfirmListener listener) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		public boolean removeConfirmListener(ConfirmListener listener) {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public void clearConfirmListeners() {
+			// TODO Auto-generated method stub
+			
+		}
+
+		public boolean waitForConfirms() throws InterruptedException {
+			// TODO Auto-generated method stub
+			return false;
+		}
+
+		public void waitForConfirmsOrDie() throws IOException,
+				InterruptedException {
+			// TODO Auto-generated method stub
+			
 		}
 	}
 
