@@ -48,6 +48,7 @@ import com.rabbitmq.client.AMQP.Tx.RollbackOk;
 
 /**
  * @author Mark Fisher
+ * @author Gary Russell
  * @since 2.1
  */
 public class StubRabbitConnectionFactory implements ConnectionFactory {
@@ -360,54 +361,38 @@ public class StubRabbitConnectionFactory implements ConnectionFactory {
 		}
 
 		public boolean removeReturnListener(ReturnListener listener) {
-			// TODO Auto-generated method stub
 			return false;
 		}
 
 		public void clearReturnListeners() {
-			// TODO Auto-generated method stub
-			
 		}
 
 		public void addFlowListener(FlowListener listener) {
-			// TODO Auto-generated method stub
-			
 		}
 
 		public boolean removeFlowListener(FlowListener listener) {
-			// TODO Auto-generated method stub
 			return false;
 		}
 
 		public void clearFlowListeners() {
-			// TODO Auto-generated method stub
-			
 		}
 
 		public void addConfirmListener(ConfirmListener listener) {
-			// TODO Auto-generated method stub
-			
 		}
 
 		public boolean removeConfirmListener(ConfirmListener listener) {
-			// TODO Auto-generated method stub
 			return false;
 		}
 
 		public void clearConfirmListeners() {
-			// TODO Auto-generated method stub
-			
 		}
 
 		public boolean waitForConfirms() throws InterruptedException {
-			// TODO Auto-generated method stub
 			return false;
 		}
 
 		public void waitForConfirmsOrDie() throws IOException,
 				InterruptedException {
-			// TODO Auto-generated method stub
-			
 		}
 	}
 
