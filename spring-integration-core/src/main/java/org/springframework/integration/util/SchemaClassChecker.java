@@ -30,9 +30,9 @@ import org.springframework.core.io.support.ResourcePatternResolver;
 
 /**
  * Examines the schema with the highest version and tries
- * to load any classes found in &lt;tool:expected-type/>&gt; or
- * &lt;tool:exports.&gt; elements. Returns 0 if all ok, -1 if
- * no schema found or number of classes that can't be loaded. 
+ * to load any classes found in &lt;tool:expected-type/&gt; or
+ * &lt;tool:exports/&gt; elements. Exits with 0 if all ok, -1 if
+ * no schema found, or the number of classes that can't be loaded. 
  * @author Gary Russell
  * @since 2.2
  *
