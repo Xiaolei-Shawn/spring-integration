@@ -22,12 +22,34 @@ allprojects {
     }
 }
 
+class SchemaToolTypeChecker implements Plugin<Project> {
+	def void apply(Project project) {
+		project.task('schemaToolTypeCheck') << {
+			File file = project.file('src/main/resources')
+			def lookHere  = 'file:' + file.absolutePath + '/**/spring-integration*.xsd'
+			def command = 'java -cp ' + project.test.classpath.asPath + ' org.springframework.integration.util.SchemaClassChecker ' + lookHere
+			def proc = command.execute()
+			proc.waitFor()
+
+			if (proc.exitValue() > 0) {
+				println "return code: ${proc.exitValue()}"
+				println "stderr: ${proc.err.text}"
+				println "stdout: ${proc.in.text}"
+				if (proc.exitValue() < 255) {
+					throw new RuntimeException("Bad classnames in schema")
+				}
+			}
+		}
+	}
+}
+
 subprojects { subproject ->
     apply plugin: 'java'
     apply plugin: 'maven'
     apply plugin: 'eclipse'
     apply plugin: 'idea'
     apply plugin: 'bundlor'
+    apply plugin: SchemaToolTypeChecker
 
     // ensure JDK 5 compatibility (GRADLE-18; INT-1578)
     sourceCompatibility=1.5
@@ -170,6 +192,7 @@ project('spring-integration-core') {
             'org.apache.commons.logging;version="[1.1.1, 2.0.0)"',
             'org.aopalliance.*;version="[1.0.0, 2.0.0)"',
             'org.codehaus.jackson.*;version="[1.0.0, 2.0.0)";resolution:=optional',
+            'javax.xml.*;version="0"',
             'org.w3c.dom.*;version="0"'
         ]
     }
