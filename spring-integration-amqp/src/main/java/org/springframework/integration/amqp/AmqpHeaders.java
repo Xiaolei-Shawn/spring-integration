@@ -72,4 +72,6 @@ public abstract class AmqpHeaders {
 
 	public static final String USER_ID = PREFIX + "userId";
 
+	public static final String SPRING_REPLY_CORRELATION = PREFIX + "springReplyCorrelation";
+
 }

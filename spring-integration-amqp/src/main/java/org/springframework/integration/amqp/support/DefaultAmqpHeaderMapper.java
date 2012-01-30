@@ -70,6 +70,7 @@ public class DefaultAmqpHeaderMapper extends AbstractHeaderMapper<MessagePropert
 		STANDARD_HEADER_NAMES.add(AmqpHeaders.TIMESTAMP);
 		STANDARD_HEADER_NAMES.add(AmqpHeaders.TYPE);
 		STANDARD_HEADER_NAMES.add(AmqpHeaders.USER_ID);
+		STANDARD_HEADER_NAMES.add("spring_reply_correlation");
 	}
 
 	/**
@@ -154,6 +155,12 @@ public class DefaultAmqpHeaderMapper extends AbstractHeaderMapper<MessagePropert
 			String userId = amqpMessageProperties.getUserId();
 			if (StringUtils.hasText(userId)) {
 				headers.put(AmqpHeaders.USER_ID, userId);
+			}
+			Object replyCorrelation = amqpMessageProperties.getHeaders().get("spring_reply_correlation");
+			if (replyCorrelation instanceof String) {
+				if (StringUtils.hasText((String) replyCorrelation)) {
+					headers.put(AmqpHeaders.SPRING_REPLY_CORRELATION, replyCorrelation);
+				}
 			}
 		}
 		catch (Exception e) {
@@ -253,6 +260,10 @@ public class DefaultAmqpHeaderMapper extends AbstractHeaderMapper<MessagePropert
 		String userId = getHeaderIfAvailable(headers, AmqpHeaders.USER_ID, String.class);
 		if (StringUtils.hasText(userId)) {
 			amqpMessageProperties.setUserId(userId);
+		}
+		String replyCorrelation = getHeaderIfAvailable(headers, AmqpHeaders.SPRING_REPLY_CORRELATION, String.class);
+		if (StringUtils.hasLength(replyCorrelation)) {
+			amqpMessageProperties.setHeader("spring_reply_correlation", replyCorrelation);
 		}
 	}
 
