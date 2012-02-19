@@ -74,4 +74,6 @@ public abstract class AmqpHeaders {
 
 	public static final String SPRING_REPLY_CORRELATION = PREFIX + "springReplyCorrelation";
 
+	public static final String SPRING_REPLY_TO_STACK = PREFIX + "springReplyToStack";
+
 }
