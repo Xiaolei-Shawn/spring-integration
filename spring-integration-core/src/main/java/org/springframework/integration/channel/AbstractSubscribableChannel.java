@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2011 the original author or authors.
+ * Copyright 2002-2012 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@ import org.springframework.integration.Message;
 import org.springframework.integration.MessageChannel;
 import org.springframework.integration.core.MessageHandler;
 import org.springframework.integration.core.SubscribableChannel;
+import org.springframework.integration.dispatcher.AbstractDispatcher;
 import org.springframework.integration.dispatcher.MessageDispatcher;
-import org.springframework.integration.dispatcher.UnicastingDispatcher;
 import org.springframework.util.Assert;
 
 /**
@@ -32,6 +32,7 @@ import org.springframework.util.Assert;
  * 
  * @author Mark Fisher
  * @author Oleg Zhurakousky
+ * @author Gary Russell
  */
 public abstract class AbstractSubscribableChannel extends AbstractMessageChannel implements SubscribableChannel {
 	
@@ -41,7 +42,14 @@ public abstract class AbstractSubscribableChannel extends AbstractMessageChannel
 		MessageDispatcher dispatcher = this.getRequiredDispatcher();
 		boolean added = dispatcher.addHandler(handler);
 		if (added) {
-			int counter = handlerCounter.incrementAndGet();
+			int counter = 0;
+			if (dispatcher instanceof AbstractDispatcher) {
+				counter = ((AbstractDispatcher) dispatcher).getHandlerCount();
+			}
+			else {
+				// some other dispatcher hand-roll the counter
+				counter = handlerCounter.incrementAndGet();
+			}
 			if (logger.isInfoEnabled()) {
 				logger.info("Channel '" + this.getComponentName() + "' has " + counter + " subscriber(s).");
 			}
@@ -50,10 +58,22 @@ public abstract class AbstractSubscribableChannel extends AbstractMessageChannel
 	}
 
 	public boolean unsubscribe(MessageHandler handle) {
-		if (this.getRequiredDispatcher() instanceof UnicastingDispatcher){
-			handlerCounter.getAndDecrement();
+		MessageDispatcher dispatcher = this.getRequiredDispatcher();
+		boolean removed = dispatcher.removeHandler(handle);
+		if (removed) {
+			int counter = 0;
+			if (dispatcher instanceof AbstractDispatcher) {
+				counter = ((AbstractDispatcher) dispatcher).getHandlerCount();
+			}
+			else {
+				// some other dispatcher hand-roll the counter
+				counter = handlerCounter.decrementAndGet();
+			}
+			if (logger.isInfoEnabled()) {
+				logger.info("Channel '" + this.getComponentName() + "' has " + counter + " subscriber(s).");
+			}
 		}
-		return this.getRequiredDispatcher().removeHandler(handle);
+		return removed;
 	}
 
 	@Override
