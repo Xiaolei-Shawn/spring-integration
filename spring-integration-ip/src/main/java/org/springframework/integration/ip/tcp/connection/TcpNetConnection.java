@@ -16,6 +16,8 @@
 
 package org.springframework.integration.ip.tcp.connection;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 
@@ -137,6 +139,7 @@ public class TcpNetConnection extends AbstractTcpConnection {
 				logger.debug("Message received " + message);
 			}
 			try {
+				listener = this.getListener();
 				if (listener == null) {
 					logger.warn("Unexpected message - no inbound adapter registered with connection " + message);
 					continue;
@@ -166,6 +169,13 @@ public class TcpNetConnection extends AbstractTcpConnection {
 				okToRun = false;
 			}
 		}
+	}
+
+	public InputStream getInputStream() throws IOException {
+		if (this.socket != null) {
+			return socket.getInputStream();
+		}
+		return null;
 	}
 
 }

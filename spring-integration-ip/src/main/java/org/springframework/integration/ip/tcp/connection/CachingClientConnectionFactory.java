@@ -100,6 +100,11 @@ public class CachingClientConnectionFactory extends AbstractClientConnectionFact
 		return new CachedConnection(this.pool.getItem());
 	}
 
+	@Override
+	public TcpConnection getNewConnection() throws Exception {
+		return obtainConnection();
+	}
+
 	private class CachedConnection extends AbstractTcpConnectionInterceptor {
 
 		private volatile boolean released;

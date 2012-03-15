@@ -19,6 +19,8 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.Socket;
 
 import javax.net.SocketFactory;
@@ -89,6 +91,9 @@ public class TcpMessageMapperTests {
 			public String getConnectionId() {
 				return "anId";
 			}
+			public InputStream getInputStream() throws IOException {
+				return null;
+			}
 		};
 		Message<Object> message = mapper.toMessage(connection);
 		assertEquals(TEST_PAYLOAD, new String((byte[]) message.getPayload()));
@@ -140,6 +145,9 @@ public class TcpMessageMapperTests {
 			@Override
 			public String getConnectionId() {
 				return "anId";
+			}
+			public InputStream getInputStream() throws IOException {
+				return null;
 			}
 		};
 		Message<Object> message = mapper.toMessage(connection);

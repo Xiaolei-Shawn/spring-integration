@@ -16,6 +16,7 @@
 package org.springframework.integration.ip.tcp.connection;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
@@ -104,6 +105,11 @@ public class FailoverClientConnectionFactory extends AbstractClientConnectionFac
 		if (connection != null && connection.isOpen()) {
 			return connection;
 		}
+		return getNewConnection();
+	}
+
+	@Override
+	public TcpConnection getNewConnection() throws Exception {
 		return new FailoverTcpConnection(this.factories);
 	}
 
@@ -210,6 +216,10 @@ public class FailoverClientConnectionFactory extends AbstractClientConnectionFac
 					}
 				}
 			}
+		}
+
+		public InputStream getInputStream() throws IOException {
+			throw new UnsupportedOperationException("Not supported for failover connections");
 		}
 
 		public void close() {

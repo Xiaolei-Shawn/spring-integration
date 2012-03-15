@@ -68,6 +68,15 @@ public class TcpNioClientConnectionFactory extends
 	 */
 	@Override
 	protected TcpConnection obtainConnection() throws Exception {
+		TcpConnection theConnection = this.getTheConnection();
+		if (theConnection != null && theConnection.isOpen()) {
+			return theConnection;
+		}
+		return getNewConnection();
+	}
+
+	@Override
+	public TcpConnection getNewConnection() throws Exception {
 		int n = 0;
 		while (this.selector == null) {
 			try {
@@ -78,10 +87,6 @@ public class TcpNioClientConnectionFactory extends
 			if (n++ > 600) {
 				throw new Exception("Factory failed to start");
 			}
-		}
-		TcpConnection theConnection = this.getTheConnection();
-		if (theConnection != null && theConnection.isOpen()) {
-			return theConnection;
 		}
 		if (logger.isDebugEnabled()) {
 			logger.debug("Opening new socket channel connection to " + this.getHost() + ":" + this.getPort());
@@ -99,8 +104,8 @@ public class TcpNioClientConnectionFactory extends
 			connection.setLastRead(System.currentTimeMillis());
 		}
 		this.channelMap.put(socketChannel, connection);
-		newChannels.add(socketChannel);
-		selector.wakeup();
+		this.newChannels.add(socketChannel);
+		this.selector.wakeup();
 		return wrappedConnection;
 	}
 
