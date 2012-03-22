@@ -30,6 +30,7 @@ import javax.management.ObjectName;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.beans.MutablePropertyValues;
+import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.beans.factory.support.RootBeanDefinition;
 import org.springframework.context.support.StaticApplicationContext;
 import org.springframework.integration.Message;
@@ -51,14 +52,19 @@ public class MessageSourcePollerExceptionTests {
 
 	private TestNotificationListener notificationListener = new TestNotificationListener();
 
-	private final static String OBJECT_NAME = "org.springframework.integration:type=MessageSource,name=spca,bean=endpoint";
+	private final static String DOMAIN = MessageSourcePollerExceptionTests.class.getSimpleName();
+
+	private final static String OBJECT_NAME = DOMAIN + ":type=MessageSource,name=spca,bean=endpoint";
 
 	private ObjectName objectName;
 
 	@Before
 	public void setup() throws Exception {
 		objectName = ObjectName.getInstance(OBJECT_NAME);
-		context.registerSingleton("exporter", IntegrationMBeanExporter.class);
+
+		BeanDefinition exporterBeanDefinition = new RootBeanDefinition(IntegrationMBeanExporter.class);
+		exporterBeanDefinition.getPropertyValues().add("defaultDomain", DOMAIN);
+		context.registerBeanDefinition("exporter", exporterBeanDefinition);
 		context.registerSingleton("taskScheduler", ThreadPoolTaskScheduler.class);
 		context.registerSingleton("errorChannel", QueueChannel.class);
 
@@ -74,7 +80,7 @@ public class MessageSourcePollerExceptionTests {
 		MBeanExporter exporter = context.getBean(MBeanExporter.class);
 		exporter.getServer()
 				.addNotificationListener(
-					objectName,
+						ObjectName.getInstance(OBJECT_NAME),
 					this.notificationListener, null, null);
 	}
 
