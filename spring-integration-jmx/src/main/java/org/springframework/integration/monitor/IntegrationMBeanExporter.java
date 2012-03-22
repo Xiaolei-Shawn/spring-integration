@@ -24,6 +24,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import javax.management.DynamicMBean;
 import javax.management.JMException;
+import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 import javax.management.modelmbean.ModelMBean;
 
@@ -562,6 +563,11 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 					sourcesByName.put(name, monitor);
 				}
 				registerBeanNameOrInstance(monitor, beanKey);
+				try {
+					source.setObjectName(this.getObjectName(monitor, beanKey));
+				} catch (MalformedObjectNameException e) {
+					logger.error("Could not provide object name to MBean - notifications will be suppressed", e);
+				}
 				// Expose the raw bean if it is managed
 				MessageSource<?> bean = source.getMessageSource();
 				if (assembler.includeBean(bean.getClass(), source.getName())) {

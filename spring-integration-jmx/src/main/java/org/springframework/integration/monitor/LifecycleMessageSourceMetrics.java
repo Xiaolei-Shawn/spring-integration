@@ -20,6 +20,7 @@ import org.springframework.context.Lifecycle;
 import org.springframework.jmx.export.annotation.ManagedAttribute;
 import org.springframework.jmx.export.annotation.ManagedOperation;
 import org.springframework.jmx.export.annotation.ManagedResource;
+import org.springframework.jmx.export.notification.NotificationPublisher;
 
 /**
  * A {@link MessageSourceMetrics} that exposes in addition the {@link Lifecycle} interface. The lifecycle methods can
@@ -76,6 +77,22 @@ public class LifecycleMessageSourceMetrics implements MessageSourceMetrics, Life
 	 */
 	public int getMessageCount() {
 		return this.delegate.getMessageCount();
+	}
+
+
+	public int getNoWorkCount() {
+		return delegate.getNoWorkCount();
+	}
+
+
+	public int getPollFailureCount() {
+		return delegate.getPollFailureCount();
+	}
+
+
+	public void setNotificationPublisher(
+			NotificationPublisher notificationPublisher) {
+		this.delegate.setNotificationPublisher(notificationPublisher);
 	}
 
 }
