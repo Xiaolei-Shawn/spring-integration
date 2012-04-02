@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xmlns:context="http://www.springframework.org/schema/context" xmlns:int="http://www.springframework.org/schema/integration"
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:task="http://www.springframework.org/schema/task"
 	xsi:schemaLocation="http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/task http://www.springframework.org/schema/task/spring-task-3.0.xsd
 		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
 		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context.xsd">
 
@@ -16,5 +20,13 @@
 	</int:inbound-channel-adapter>
 
 	<bean id="service" class="org.springframework.integration.monitor.MBeanExporterIntegrationTests$SimpleService" />
+
+	<bean id="activeChannel" class="org.springframework.integration.monitor.MBeanExporterIntegrationTests$ActiveChannelImpl" />
+
+	<task:scheduler id="someScheduler"/>
+
+	<task:executor id="someExecutor"/>
+
+	<bean id="nonSpringExecutor" class="java.util.concurrent.Executors" factory-method="newSingleThreadExecutor" />
 
 </beans>

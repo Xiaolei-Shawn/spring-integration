@@ -14,11 +14,16 @@
 package org.springframework.integration.monitor;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -38,15 +43,19 @@ import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.aop.support.NameMatchMethodPointcutAdvisor;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.beans.factory.BeanClassLoaderAware;
 import org.springframework.beans.factory.BeanCreationException;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.BeanFactoryAware;
 import org.springframework.beans.factory.ListableBeanFactory;
 import org.springframework.beans.factory.config.BeanPostProcessor;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.Lifecycle;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.integration.MessageChannel;
+import org.springframework.integration.MessagingException;
 import org.springframework.integration.channel.QueueChannel;
 import org.springframework.integration.core.MessageHandler;
 import org.springframework.integration.core.MessageSource;
@@ -62,6 +71,8 @@ import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.jmx.export.assembler.MetadataMBeanInfoAssembler;
 import org.springframework.jmx.export.naming.MetadataNamingStrategy;
 import org.springframework.jmx.support.MetricType;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.util.Assert;
 import org.springframework.util.PatternMatchUtils;
 import org.springframework.util.ReflectionUtils;
@@ -94,7 +105,7 @@ import org.springframework.util.ReflectionUtils;
  */
 @ManagedResource
 public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostProcessor, BeanFactoryAware,
-		BeanClassLoaderAware, SmartLifecycle {
+		ApplicationContextAware, BeanClassLoaderAware, SmartLifecycle {
 
 	private static final Log logger = LogFactory.getLog(IntegrationMBeanExporter.class);
 
@@ -103,6 +114,8 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 	private final AnnotationJmxAttributeSource attributeSource = new AnnotationJmxAttributeSource();
 
 	private ListableBeanFactory beanFactory;
+
+	private ApplicationContext applicationContext;
 
 	private Map<Object, AtomicLong> anonymousHandlerCounters = new HashMap<Object, AtomicLong>();
 
@@ -189,6 +202,11 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		super.setBeanFactory(beanFactory);
 		Assert.isTrue(beanFactory instanceof ListableBeanFactory, "A ListableBeanFactory is required.");
 		this.beanFactory = (ListableBeanFactory) beanFactory;
+	}
+
+	public void setApplicationContext(ApplicationContext applicationContext)
+			throws BeansException {
+		this.applicationContext = applicationContext;
 	}
 
 	public Object postProcessAfterInitialization(Object bean, String beanName) throws BeansException {
@@ -406,6 +424,100 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		}
 		for (MessageHandlerMetrics monitor : handlers) {
 			logger.info("Summary on shutdown: " + monitor);
+		}
+	}
+
+	@ManagedOperation
+	public void stopActiveComponents(long howLong, TimeUnit timeUnit) {
+		stopMessageSources();
+		stopActiveChannels();
+		List<ExecutorService> executorServices = new ArrayList<ExecutorService>();
+		// Stop any new executions
+		stopSchedulers(executorServices);
+		stopExecutors(executorServices);
+		stopNonSpringExecutors(executorServices);
+		long timeLeft = timeUnit.toMillis(howLong);
+		long now = System.currentTimeMillis();
+		for (ExecutorService executorService : executorServices) {
+			try {
+				if (!executorService.awaitTermination(timeLeft, TimeUnit.MILLISECONDS)) {
+					logger.error("Executor service " + executorService + " failed to terminate");
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.error("Interrupted while shutting down executor service " + executorService);
+				throw new MessagingException("Interrupted while shutting down", e);
+			}
+			timeLeft -= (now - System.currentTimeMillis());
+			if (now <= 0) {
+				logger.error("Timed out before waiting for all executor services");
+			}
+		}
+	}
+
+	private void stopMessageSources() {
+		for (Entry<String, MessageSourceMetrics> entry : this.sourcesByName.entrySet()) {
+			MessageSourceMetrics sourceMetrics = entry.getValue();
+			if (sourceMetrics instanceof LifecycleMessageSourceMetrics) {
+				if (logger.isInfoEnabled()) {
+					logger.info("Stopping message source " + sourceMetrics);
+				}
+				((LifecycleMessageSourceMetrics) sourceMetrics).stop();
+			}
+			else {
+				if (logger.isInfoEnabled()) {
+					logger.info("Message source " + sourceMetrics + " cannot be stopped");
+				}
+			}
+		}
+	}
+
+	private void stopActiveChannels() {
+		// Stop any "active" channels (JMS etc).
+		for (Entry<String, DirectChannelMetrics> entry : this.channelsByName.entrySet()) {
+			DirectChannelMetrics metrics = entry.getValue();
+			MessageChannel channel = metrics.getMessageChannel();
+			if (channel instanceof Lifecycle) {
+				if (logger.isInfoEnabled()) {
+					logger.info("Stopping channel " + channel);
+				}
+				((Lifecycle) channel).stop();
+			}
+		}
+	}
+
+	private void stopSchedulers(List<ExecutorService> executorServices) {
+		Map<String, ThreadPoolTaskScheduler> schedulers = this.applicationContext.getBeansOfType(ThreadPoolTaskScheduler.class);
+		for (Entry<String, ThreadPoolTaskScheduler> entry : schedulers.entrySet()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("Stopping scheduler " + entry.getValue());
+			}
+			entry.getValue().shutdown();
+			executorServices.add((ExecutorService) new DirectFieldAccessor(
+					entry.getValue()).getPropertyValue("scheduledExecutor"));
+		}
+	}
+
+	private void stopExecutors(List<ExecutorService> executorServices) {
+		Map<String, ThreadPoolTaskExecutor> executors = this.applicationContext.getBeansOfType(ThreadPoolTaskExecutor.class);
+		for (Entry<String, ThreadPoolTaskExecutor> entry : executors.entrySet()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("Stopping executor " + entry.getValue());
+			}
+			entry.getValue().shutdown();
+			executorServices.add((ExecutorService) new DirectFieldAccessor(
+					entry.getValue()).getPropertyValue("threadPoolExecutor"));
+		}
+	}
+
+	private void stopNonSpringExecutors(List<ExecutorService> executorServices) {
+		Map<String, ExecutorService> nonSpringExecutors = this.applicationContext.getBeansOfType(ExecutorService.class);
+		for (Entry<String, ExecutorService> entry : nonSpringExecutors.entrySet()) {
+			if (logger.isInfoEnabled()) {
+				logger.info("Stopping executor service " + entry.getValue());
+			}
+			entry.getValue().shutdown();
+			executorServices.add(entry.getValue());
 		}
 	}
 
@@ -901,5 +1013,4 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		ReflectionUtils.makeAccessible(field);
 		return ReflectionUtils.getField(field, target);
 	}
-
 }

@@ -13,12 +13,14 @@
 package org.springframework.integration.monitor;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
 import java.util.Date;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import javax.management.MBeanOperationInfo;
 import javax.management.MBeanServer;
@@ -28,7 +30,9 @@ import org.junit.After;
 import org.junit.Test;
 import org.springframework.beans.factory.FactoryBean;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.context.Lifecycle;
 import org.springframework.context.support.GenericXmlApplicationContext;
+import org.springframework.integration.Message;
 import org.springframework.integration.MessageChannel;
 import org.springframework.integration.context.IntegrationObjectSupport;
 import org.springframework.integration.endpoint.AbstractEndpoint;
@@ -107,6 +111,11 @@ public class MBeanExporterIntegrationTests {
 		}
 		// Lifecycle method name
 		assertEquals("start", startName);
+		assertTrue((Boolean) server.invoke(names.iterator().next(), "isRunning", null, null));
+		messageChannelsMonitor.stopActiveComponents(30, TimeUnit.SECONDS);
+		assertFalse((Boolean) server.invoke(names.iterator().next(), "isRunning", null, null));
+		ActiveChannel activeChannel = context.getBean("activeChannel", ActiveChannel.class);
+		assertTrue(activeChannel.isStopCalled());
 	}
 
 	@Test
@@ -276,4 +285,35 @@ public class MBeanExporterIntegrationTests {
 		}
 	}
 
+	public static interface ActiveChannel {
+		boolean isStopCalled();
+	}
+
+	public static class ActiveChannelImpl implements MessageChannel, Lifecycle, ActiveChannel {
+
+		private boolean stopCalled;
+
+		public boolean send(Message<?> message) {
+			return false;
+		}
+
+		public boolean send(Message<?> message, long timeout) {
+			return false;
+		}
+
+		public void start() {
+		}
+
+		public void stop() {
+			this.stopCalled = true;
+		}
+
+		public boolean isRunning() {
+			return false;
+		}
+
+		public boolean isStopCalled() {
+			return this.stopCalled;
+		}
+	}
 }
