@@ -29,4 +29,6 @@
 
 	<bean id="nonSpringExecutor" class="java.util.concurrent.Executors" factory-method="newSingleThreadExecutor" />
 
+	<bean id="otherActiveComponent" class="org.springframework.integration.monitor.MBeanExporterIntegrationTests$OtherActiveComponent" />
+
 </beans>

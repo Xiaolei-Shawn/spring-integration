@@ -59,6 +59,7 @@ import org.springframework.integration.MessagingException;
 import org.springframework.integration.channel.QueueChannel;
 import org.springframework.integration.core.MessageHandler;
 import org.springframework.integration.core.MessageSource;
+import org.springframework.integration.core.OrderlyShutdownCapable;
 import org.springframework.integration.core.PollableChannel;
 import org.springframework.integration.endpoint.AbstractEndpoint;
 import org.springframework.jmx.export.MBeanExporter;
@@ -134,6 +135,12 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 	private Map<String, MessageHandlerMetrics> handlersByName = new HashMap<String, MessageHandlerMetrics>();
 
 	private Map<String, MessageSourceMetrics> sourcesByName = new HashMap<String, MessageSourceMetrics>();
+
+	private Map<String, DirectChannelMetrics> allChannelsByName = new HashMap<String, DirectChannelMetrics>();
+
+	private Map<String, MessageHandlerMetrics> allHandlersByName = new HashMap<String, MessageHandlerMetrics>();
+
+	private Map<String, MessageSourceMetrics> allSourcesByName = new HashMap<String, MessageSourceMetrics>();
 
 	private Map<String, String> beansByEndpointName = new HashMap<String, String>();
 
@@ -427,36 +434,58 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		}
 	}
 
+	/**
+	 * Shutdown active components.
+	 *
+	 * @param force If true, stop the executors with shutdownNow() canceling
+	 * running tasks. Overrides any settings on schedulers/executors. When true
+	 * may result in error messages being sent to error channels.
+	 * @param howLong The time to wait in total for all activities to complete
+	 * in milliseconds.
+	 */
 	@ManagedOperation
-	public void stopActiveComponents(long howLong, TimeUnit timeUnit) {
-		stopMessageSources();
-		stopActiveChannels();
-		List<ExecutorService> executorServices = new ArrayList<ExecutorService>();
-		// Stop any new executions
-		stopSchedulers(executorServices);
-		stopExecutors(executorServices);
-		stopNonSpringExecutors(executorServices);
-		long timeLeft = timeUnit.toMillis(howLong);
+	public void stopActiveComponents(boolean force, long howLong) {
+		long timeLeft = howLong;
 		long now = System.currentTimeMillis();
-		for (ExecutorService executorService : executorServices) {
+		this.stopOtherActiveComponents();
+		this.stopActiveChannels();
+		this.stopSchedulers(force, now, timeLeft);
+		timeLeft += (now - System.currentTimeMillis());
+		if (timeLeft <= 0) {
+			logger.error("Timed out before waiting for all schedulers to complete");
+		}
+		this.stopExecutors(force, now, timeLeft);
+		timeLeft += (now - System.currentTimeMillis());
+		if (timeLeft <= 0) {
+			logger.error("Timed out before waiting for all executors to complete");
+		}
+		this.stopNonSpringExecutors(force, now, timeLeft);
+		timeLeft += (now - System.currentTimeMillis());
+		if (timeLeft <= 0) {
+			logger.error("Timed out before waiting for all non-Spring executors to complete");
+		}
+		this.stopMessageSources();
+		if (timeLeft > 0) {
 			try {
-				if (!executorService.awaitTermination(timeLeft, TimeUnit.MILLISECONDS)) {
-					logger.error("Executor service " + executorService + " failed to terminate");
-				}
+				Thread.sleep(timeLeft);
 			} catch (InterruptedException e) {
 				Thread.currentThread().interrupt();
-				logger.error("Interrupted while shutting down executor service " + executorService);
-				throw new MessagingException("Interrupted while shutting down", e);
+				logger.error("Interrupted while waiting for quiesce");
 			}
-			timeLeft -= (now - System.currentTimeMillis());
-			if (now <= 0) {
-				logger.error("Timed out before waiting for all executor services");
-			}
+		}
+		else {
+			this.stopSchedulers(true, 0, 0);
+			this.stopExecutors(true,  0, 0);
+			this.stopNonSpringExecutors(true, 0, 0);
 		}
 	}
 
-	private void stopMessageSources() {
-		for (Entry<String, MessageSourceMetrics> entry : this.sourcesByName.entrySet()) {
+	/**
+	 * Stops all message sources - may cause interrupts.
+	 */
+	@ManagedOperation
+	public void stopMessageSources() {
+		for (Entry<String, MessageSourceMetrics> entry : this.allSourcesByName.entrySet()) {
 			MessageSourceMetrics sourceMetrics = entry.getValue();
 			if (sourceMetrics instanceof LifecycleMessageSourceMetrics) {
 				if (logger.isInfoEnabled()) {
@@ -472,9 +501,10 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		}
 	}
 
-	private void stopActiveChannels() {
+	@ManagedOperation
+	public void stopActiveChannels() {
 		// Stop any "active" channels (JMS etc).
-		for (Entry<String, DirectChannelMetrics> entry : this.channelsByName.entrySet()) {
+		for (Entry<String, DirectChannelMetrics> entry : this.allChannelsByName.entrySet()) {
 			DirectChannelMetrics metrics = entry.getValue();
 			MessageChannel channel = metrics.getMessageChannel();
 			if (channel instanceof Lifecycle) {
@@ -486,39 +516,112 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		}
 	}
 
-	private void stopSchedulers(List<ExecutorService> executorServices) {
-		Map<String, ThreadPoolTaskScheduler> schedulers = this.applicationContext.getBeansOfType(ThreadPoolTaskScheduler.class);
+	@ManagedOperation
+	public void stopSchedulers(boolean force, long now, long timeLeft) {
+		logger.debug("Stopping schedulers " + (force ? "(force)" : ""));
+		List<ExecutorService> executorServices = new ArrayList<ExecutorService>();
+		Map<String, ThreadPoolTaskScheduler> schedulers = this.applicationContext
+				.getBeansOfType(ThreadPoolTaskScheduler.class);
 		for (Entry<String, ThreadPoolTaskScheduler> entry : schedulers.entrySet()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("Stopping scheduler " + entry.getValue());
 			}
-			entry.getValue().shutdown();
-			executorServices.add((ExecutorService) new DirectFieldAccessor(
+			ExecutorService executorService = ((ExecutorService) new DirectFieldAccessor(
 					entry.getValue()).getPropertyValue("scheduledExecutor"));
+			executorServices.add(executorService);
+			if (force) {
+				executorService.shutdownNow();
+			}
+			else {
+				executorService.shutdown();
+			}
 		}
+		waitForExecutors(timeLeft, now, executorServices);
+		logger.debug("Stopped schedulers");
 	}
 
-	private void stopExecutors(List<ExecutorService> executorServices) {
-		Map<String, ThreadPoolTaskExecutor> executors = this.applicationContext.getBeansOfType(ThreadPoolTaskExecutor.class);
+	@ManagedOperation
+	public void stopExecutors(boolean force, long now, long timeLeft) {
+		logger.debug("Stopping executors" + (force ? "(force)" : ""));
+		List<ExecutorService> executorServices = new ArrayList<ExecutorService>();
+		Map<String, ThreadPoolTaskExecutor> executors = this.applicationContext
+				.getBeansOfType(ThreadPoolTaskExecutor.class);
 		for (Entry<String, ThreadPoolTaskExecutor> entry : executors.entrySet()) {
 			if (logger.isInfoEnabled()) {
 				logger.info("Stopping executor " + entry.getValue());
 			}
-			entry.getValue().shutdown();
-			executorServices.add((ExecutorService) new DirectFieldAccessor(
-					entry.getValue()).getPropertyValue("threadPoolExecutor"));
+			ExecutorService executorService = (ExecutorService) new DirectFieldAccessor(
+					entry.getValue()).getPropertyValue("threadPoolExecutor");
+			executorServices.add(executorService);
+			if (force) {
+				executorService.shutdownNow();
+			}
+			else {
+				executorService.shutdown();
+			}
 		}
+		waitForExecutors(timeLeft, now, executorServices);
+		logger.debug("Stopped executors");
 	}
 
-	private void stopNonSpringExecutors(List<ExecutorService> executorServices) {
-		Map<String, ExecutorService> nonSpringExecutors = this.applicationContext.getBeansOfType(ExecutorService.class);
+	@ManagedOperation
+	public void stopNonSpringExecutors(boolean force, long now, long timeLeft) {
+		logger.debug("Stopping other executors" + (force ? "(force)" : ""));
+		List<ExecutorService> executorServices = new ArrayList<ExecutorService>();
+		Map<String, ExecutorService> nonSpringExecutors = this.applicationContext
+				.getBeansOfType(ExecutorService.class);
 		for (Entry<String, ExecutorService> entry : nonSpringExecutors.entrySet()) {
+			ExecutorService executorService = entry.getValue();
 			if (logger.isInfoEnabled()) {
-				logger.info("Stopping executor service " + entry.getValue());
+				logger.info("Stopping executor service " + executorService);
 			}
-			entry.getValue().shutdown();
-			executorServices.add(entry.getValue());
+			executorServices.add(executorService);
+			if (force) {
+				executorService.shutdownNow();
+			}
+			else {
+				executorService.shutdown();
+			}
 		}
+		waitForExecutors(timeLeft, now, executorServices);
+		logger.debug("Stopped other executors");
+	}
+
+	private long waitForExecutors(long timeLeft, long now,
+			List<ExecutorService> executorServices) {
+		for (ExecutorService executorService : executorServices) {
+			try {
+				if (!executorService.awaitTermination(timeLeft, TimeUnit.MILLISECONDS)) {
+					logger.error("Executor service " + executorService + " failed to terminate");
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				logger.error("Interrupted while shutting down executor service " + executorService);
+				throw new MessagingException("Interrupted while shutting down", e);
+			}
+			timeLeft += (now - System.currentTimeMillis());
+			if (now != 0 && timeLeft <= 0) {
+				logger.error("Timed out before waiting for all executor services");
+			}
+		}
+		return timeLeft;
+	}
+
+	@ManagedOperation
+	public void stopOtherActiveComponents() {
+		logger.debug("Stopping other active components");
+		Map<String, OrderlyShutdownCapable> candidates = this.applicationContext
+				.getBeansOfType(OrderlyShutdownCapable.class);
+		for (Entry<String, OrderlyShutdownCapable> candidateEntry : candidates.entrySet()) {
+			OrderlyShutdownCapable candidate = candidateEntry.getValue();
+			if (candidate instanceof Lifecycle) {
+				if (logger.isInfoEnabled()) {
+					logger.info("Stopping component " + candidate);
+				}
+				((Lifecycle) candidate).stop();
+			}
+		}
+		logger.debug("Stopped other active components");
 	}
 
 	@ManagedMetric(metricType = MetricType.COUNTER, displayName = "MessageChannel Channel Count")
@@ -615,6 +718,7 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 	private void registerChannels() {
 		for (DirectChannelMetrics monitor : channels) {
 			String name = monitor.getName();
+			this.allChannelsByName.put(name, monitor);
 			if (!PatternMatchUtils.simpleMatch(this.componentNamePatterns, name)) {
 				continue;
 			}
@@ -640,6 +744,7 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		for (SimpleMessageHandlerMetrics source : handlers) {
 			MessageHandlerMetrics monitor = enhanceHandlerMonitor(source);
 			String name = monitor.getName();
+			this.allHandlersByName.put(name, monitor);
 			if (!PatternMatchUtils.simpleMatch(this.componentNamePatterns, name)) {
 				continue;
 			}
@@ -664,6 +769,7 @@ public class IntegrationMBeanExporter extends MBeanExporter implements BeanPostP
 		for (SimpleMessageSourceMetrics source : sources) {
 			MessageSourceMetrics monitor = enhanceSourceMonitor(source);
 			String name = monitor.getName();
+			this.allSourcesByName.put(name, monitor);
 			if (!PatternMatchUtils.simpleMatch(this.componentNamePatterns, name)) {
 				continue;
 			}
