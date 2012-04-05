@@ -16,6 +16,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.Date;
@@ -36,6 +37,7 @@ import org.springframework.integration.MessageChannel;
 import org.springframework.integration.context.IntegrationObjectSupport;
 import org.springframework.integration.core.OrderlyShutdownCapable;
 import org.springframework.integration.endpoint.AbstractEndpoint;
+import org.springframework.integration.endpoint.SourcePollingChannelAdapter;
 import org.springframework.jmx.export.annotation.ManagedResource;
 import org.springframework.util.Assert;
 
@@ -118,6 +120,21 @@ public class MBeanExporterIntegrationTests {
 		assertTrue(activeChannel.isStopCalled());
 		OtherActiveComponent otherActiveComponent = context.getBean(OtherActiveComponent.class);
 		assertTrue(otherActiveComponent.isStopCalled());
+	}
+
+	@Test
+	public void testSelfDestruction() throws Exception {
+		context = new GenericXmlApplicationContext(getClass(), "self-destruction-context.xml");
+		SourcePollingChannelAdapter adapter = context.getBean(SourcePollingChannelAdapter.class);
+		adapter.start();
+		int n = 0;
+		while (adapter.isRunning()) {
+			n += 10;
+			if (n > 10000) {
+				fail("Adapter failed to stop");
+			}
+			Thread.sleep(10);
+		}
 	}
 
 	@Test
