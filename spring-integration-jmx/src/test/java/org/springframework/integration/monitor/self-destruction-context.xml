@@ -18,7 +18,8 @@
 
 	<int:control-bus input-channel="toControlBus" />
 
-	<int-jmx:mbean-export id="integrationMbeanExporter" shutdown-executor="shutdownExec" />
+	<int-jmx:mbean-export id="integrationMbeanExporter" shutdown-executor="shutdownExec"
+		default-domain="self-destruct" />
 
 	<context:mbean-server />
 
