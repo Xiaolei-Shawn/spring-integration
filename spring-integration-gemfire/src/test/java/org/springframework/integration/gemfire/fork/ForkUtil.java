@@ -41,8 +41,8 @@ public class ForkUtil {
 
 		Process proc = null;
 		String java = home + "/bin/java ".replace("\\", "/");
-		;
-		String argCp = "-cp " + cp;
+
+		String argCp = "-cp \"" + cp + "\"";
 		String argClass = argument;
 
 		String cmd = java + argCp + " " + argClass;
