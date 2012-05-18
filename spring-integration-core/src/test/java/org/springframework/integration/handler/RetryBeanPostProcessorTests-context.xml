@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xsi:schemaLocation="http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration-2.2.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<bean class="org.springframework.integration.handler.RetryBeanPostProcessor">
+		<property name="handlers">
+			<array>
+				<value>service1.handler</value>
+			</array>
+		</property>
+	</bean>
+
+<!-- 	<bean class="org.springframework.integration.handler.RetryBeanPostProcessor"> -->
+<!-- 		<property name="handlers"> -->
+<!-- 			<array> -->
+<!-- 				<value>service1.handler</value> -->
+<!-- 			</array> -->
+<!-- 		</property> -->
+<!-- 		<property name="backofPolicy"> -->
+<!-- 			<bean class="org.springframework.retry.backoff.ExponentialBackOffPolicy" /> -->
+<!-- 		</property> -->
+<!-- 	</bean> -->
+
+	<int:channel id="in" />
+
+	<int:service-activator id="service1" input-channel="in" output-channel="nullChannel" 
+		ref="aService" />
+
+	<bean id="aService" class="org.springframework.integration.handler.RetryBeanPostProcessorTests$ServiceImpl" />
+
+</beans>

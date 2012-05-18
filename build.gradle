@@ -54,6 +54,7 @@ subprojects { subproject ->
 		springSecurityVersion = '3.1.0.RELEASE'
 		springSocialTwitterVersion = '1.0.1.RELEASE'
 		springWsVersion = '2.0.3.RELEASE'
+		springRetryVersion = '1.0.1.RELEASE'
 	}
 
 	eclipse {
@@ -173,6 +174,7 @@ project('spring-integration-core') {
 		compile "org.springframework:spring-aop:$springVersion"
 		compile "org.springframework:spring-context:$springVersion"
 		compile("org.springframework:spring-tx:$springVersion", optional)
+		compile("org.springframework.retry:spring-retry:$springRetryVersion", optional)
 		compile("org.codehaus.jackson:jackson-mapper-asl:$jacksonVersion", optional)
 		testCompile "org.aspectj:aspectjrt:$aspectjVersion"
 		testCompile "org.aspectj:aspectjweaver:$aspectjVersion"
