@@ -113,6 +113,10 @@ public class BeanFactoryTypeConverter implements TypeConverter, BeanFactoryAware
 				&& targetType.getType() == MessageHistory.class) {
 			return value;
 		}
+		if (sourceType != null && sourceType.getType() == byte[].class
+				&& targetType.getType() == byte[].class) {
+			return value;
+		}
 		if (conversionService.canConvert(sourceType, targetType)) {
 			return conversionService.convert(value, sourceType, targetType);
 		}
