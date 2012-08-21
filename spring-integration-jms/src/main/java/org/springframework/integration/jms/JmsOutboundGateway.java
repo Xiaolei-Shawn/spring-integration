@@ -16,12 +16,12 @@
 
 package org.springframework.integration.jms;
 
+import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 import javax.jms.Connection;
@@ -498,7 +498,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler {
 		return replyDestinationToReturn;
 	}
 
-private Map<Long, Session> sessionIds = new ConcurrentHashMap<Long, Session>();
+//private final Map<Long, Session> sessionIds = new ConcurrentHashMap<Long, Session>();
 
 
 	private javax.jms.Message sendAndReceive(Message<?> requestMessage) throws JMSException {
@@ -508,13 +508,19 @@ private Map<Long, Session> sessionIds = new ConcurrentHashMap<Long, Session>();
 		long sessionId = 0;
 		try {
 			session = this.createSession(connection);
-			sessionId = System.identityHashCode(session);
 
-			Session sess = sessionIds.get(sessionId);
-			if (sess != null) {
-				System.out.println("EEEEK " + session + "/" + sess);
+			if (Proxy.isProxyClass(session.getClass())){
+				sessionId = System.identityHashCode(Proxy.getInvocationHandler(session));
 			}
-			sessionIds.put(sessionId, session);
+			else {
+				sessionId = System.identityHashCode(session);
+			}
+
+//			Session sess = sessionIds.get(sessionId);
+//			if (sess != null) {
+//				System.out.println("EEEEK " + session + "/" + sess);
+//			}
+//			sessionIds.put(sessionId, session);
 			// convert to JMS Message
 			Object objectToSend = requestMessage;
 			if (this.extractRequestPayload) {
@@ -553,7 +559,7 @@ private Map<Long, Session> sessionIds = new ConcurrentHashMap<Long, Session>();
 			}
 
 			ConnectionFactoryUtils.releaseConnection(connection, this.connectionFactory, true);
-			sessionIds.remove(sessionId);
+//			sessionIds.remove(sessionId);
 		}
 	}
 

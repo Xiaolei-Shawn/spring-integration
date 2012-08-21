@@ -18,15 +18,29 @@ package org.springframework.integration.jms.request_reply;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.lang.reflect.Proxy;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.jms.Connection;
+import javax.jms.Session;
+
+import org.apache.activemq.ActiveMQConnectionFactory;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.integration.gateway.RequestReplyExchanger;
 import org.springframework.integration.jms.config.ActiveMqTestUtils;
 import org.springframework.integration.message.GenericMessage;
+import org.springframework.jms.connection.CachingConnectionFactory;
+import org.springframework.jms.connection.ConnectionFactoryUtils;
+import org.springframework.jms.support.JmsUtils;
 import org.springframework.util.StopWatch;
 /**
  * @author Oleg Zhurakousky
@@ -54,6 +68,61 @@ public class MiscellaneousTests {
 		stopWatch.stop();
 		assertTrue(stopWatch.getTotalTimeMillis() <= 11000);
 		assertEquals(1, replies.get());
+	}
+
+	@Test
+	@Ignore
+	public void sessionProxyIdentity() throws Exception{
+		ActiveMQConnectionFactory cf = new ActiveMQConnectionFactory("vm://localhost");
+		final CachingConnectionFactory ccf = new CachingConnectionFactory();
+		ccf.setTargetConnectionFactory(cf);
+		ccf.setSessionCacheSize(10);
+		ccf.setCacheConsumers(true);
+		ccf.setCacheProducers(true);
+		ccf.afterPropertiesSet();
+
+		final Connection connection = ccf.createConnection();
+
+		final Map<Object, Object> sessionMap = new HashMap<Object, Object>();
+
+		Executor executor = Executors.newCachedThreadPool();
+
+		for (int i = 0; i < 3000; i++) {
+
+			executor.execute(new Runnable() {
+
+				public void run() {
+					Session session = null;
+					try {
+						session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+						long sessionId = 0;
+						if (Proxy.isProxyClass(session.getClass())){
+							sessionId = System.identityHashCode(Proxy.getInvocationHandler(session));
+						}
+						else {
+							sessionId = System.identityHashCode(session);
+						}
+						if (sessionMap.containsKey(sessionId)){
+							if (!session.toString().equals(sessionMap.get(sessionId).toString())){
+								System.out.println("Found potential duplicate:");
+								System.out.println(session + " - " + sessionMap.get(sessionId));
+							}
+						}
+						else {
+							sessionMap.put(sessionId, session);
+						}
+						Thread.sleep(new Random().nextInt(2000));
+					} catch (Exception e) {
+						e.printStackTrace();
+					} finally {
+						JmsUtils.closeSession(session);
+						ConnectionFactoryUtils.releaseConnection(connection, ccf, true);
+					}
+				}
+			});
+
+		}
+		System.in.read();
 	}
 
 
