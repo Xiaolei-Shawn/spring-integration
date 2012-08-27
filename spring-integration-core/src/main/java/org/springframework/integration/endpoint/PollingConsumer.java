@@ -18,7 +18,7 @@ package org.springframework.integration.endpoint;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-
+import org.springframework.context.Lifecycle;
 import org.springframework.integration.Message;
 import org.springframework.integration.core.MessageHandler;
 import org.springframework.integration.core.PollableChannel;
@@ -27,20 +27,20 @@ import org.springframework.util.Assert;
 /**
  * Message Endpoint that connects any {@link MessageHandler} implementation
  * to a {@link PollableChannel}.
- * 
+ *
  * @author Mark Fisher
  * @author Oleg Zhurakousky
  */
 public class PollingConsumer extends AbstractPollingEndpoint {
 
 	private final Log logger = LogFactory.getLog(this.getClass());
-	
+
 	private final PollableChannel inputChannel;
 
 	private final MessageHandler handler;
 
 	private volatile long receiveTimeout = 1000;
-	
+
 	public PollingConsumer(PollableChannel inputChannel, MessageHandler handler) {
 		Assert.notNull(inputChannel, "inputChannel must not be null");
 		Assert.notNull(handler, "handler must not be null");
@@ -52,6 +52,24 @@ public class PollingConsumer extends AbstractPollingEndpoint {
 	public void setReceiveTimeout(long receiveTimeout) {
 		this.receiveTimeout = receiveTimeout;
 	}
+
+	@Override
+	protected void doStart() {
+		if (this.handler instanceof Lifecycle) {
+			((Lifecycle) this.handler).start();
+		}
+		super.doStart();
+	}
+
+
+	@Override
+	protected void doStop() {
+		if (this.handler instanceof Lifecycle) {
+			((Lifecycle) this.handler).stop();
+		}
+		super.doStop();
+	}
+
 
 	@Override
 	protected boolean doPoll() {
