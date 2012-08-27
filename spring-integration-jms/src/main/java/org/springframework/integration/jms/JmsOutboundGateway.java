@@ -36,6 +36,7 @@ import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 import javax.jms.Topic;
 
+import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.expression.Expression;
 import org.springframework.integration.Message;
@@ -47,14 +48,14 @@ import org.springframework.integration.handler.AbstractReplyProducingMessageHand
 import org.springframework.integration.handler.ExpressionEvaluatingMessageProcessor;
 import org.springframework.integration.support.MessageBuilder;
 import org.springframework.jms.connection.ConnectionFactoryUtils;
-import org.springframework.jms.listener.AbstractPollingMessageListenerContainer;
-import org.springframework.jms.listener.DefaultMessageListenerContainer;
+import org.springframework.jms.listener.SimpleMessageListenerContainer;
 import org.springframework.jms.support.JmsUtils;
 import org.springframework.jms.support.converter.MessageConverter;
 import org.springframework.jms.support.converter.SimpleMessageConverter;
 import org.springframework.jms.support.destination.DestinationResolver;
 import org.springframework.jms.support.destination.DynamicDestinationResolver;
 import org.springframework.util.Assert;
+import org.springframework.util.StringUtils;
 
 /**
  * An outbound Messaging Gateway for request/reply JMS.
@@ -107,7 +108,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 
 	private volatile boolean initialized;
 
-	private volatile AbstractPollingMessageListenerContainer replyContainer;
+	private volatile GatewayReplyListenerContainer replyContainer;
 
 	private final Object initializationMonitor = new Object();
 
@@ -123,6 +124,8 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 			new HashMap<String, LinkedBlockingQueue<javax.jms.Message>>();
 
 	private final Object lifeCycleMonitor = new Object();
+
+	private volatile boolean useReplyContainer = false;
 
 	/**
 	 * Set whether message delivery should be persistent or non-persistent,
@@ -335,20 +338,16 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 		this.setOutputChannel(replyChannel);
 	}
 
-
-	/**
-	 * Specify an external reply container. Note: the container's destination
-	 * will be overridden (if any) with the gateway's replyDestination (which is
-	 * required when using a replyContainer).
-	 * @param replyContainer
-	 */
-	public void setReplyContainer(AbstractPollingMessageListenerContainer replyContainer) {
-		this.replyContainer = replyContainer;
-	}
-
 	@Override
 	public String getComponentType() {
 		return "jms:outbound-gateway";
+	}
+
+	/**
+	 * @param useReplyContainer the useReplyContainer to set
+	 */
+	public void setUseReplyContainer(boolean useReplyContainer) {
+		this.useReplyContainer = useReplyContainer;
 	}
 
 	private Destination getRequestDestination(Message<?> message, Session session) throws JMSException {
@@ -421,30 +420,29 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 				this.requestDestinationExpressionProcessor.setBeanFactory(getBeanFactory());
 				this.requestDestinationExpressionProcessor.setConversionService(getConversionService());
 			}
-			Assert.state(this.replyContainer != null ? this.replyDestination != null && this.correlationKey != null : true,
-					"When using a replyContainer, the destination (not destinationName) must be supplied, as well as" +
-					" a correlationKey");
-			if (this.replyContainer == null && this.replyDestination != null && this.correlationKey != null) {
-				DefaultMessageListenerContainer container = new DefaultMessageListenerContainer();
-				container.setConnectionFactory(this.connectionFactory);
-				container.setDestination(this.replyDestination);
-				String messageSelector;
+			if (this.useReplyContainer) {
 				if (this.correlationKey != null) {
+					GatewayReplyListenerContainer container = new GatewayReplyListenerContainer();
+					container.setConnectionFactory(this.connectionFactory);
+					if (this.replyDestination != null) {
+						container.setDestination(this.replyDestination);
+					}
+					if (StringUtils.hasText(this.replyDestinationName)) {
+						container.setDestinationName(this.replyDestinationName);
+					}
+					if (this.destinationResolver != null) {
+						container.setDestinationResolver(this.destinationResolver);
+					}
+					String messageSelector;
 					messageSelector = this.correlationKey + " LIKE '" + this.gatewayCorrelation + "%'";
+					container.setMessageListener(this);
+					container.setMessageSelector(messageSelector);
+					container.afterPropertiesSet();
+					this.replyContainer = container;
 				}
 				else {
-					messageSelector = "JMSCorrelationID LIKE '" + this.gatewayCorrelation + "%'";
+					throw new IllegalStateException("Cannot use a replyContainer without a correlationKey");
 				}
-				container.setMessageListener(this);
-				container.setMessageSelector(messageSelector);
-				container.afterPropertiesSet();
-				this.replyContainer = container;
-			}
-			else if (this.replyContainer != null) {
-				if (this.replyContainer.isRunning()) {
-					this.replyContainer.stop();
-				}
-				this.replyContainer.setDestination(this.replyDestination);
 			}
 			this.initialized = true;
 		}
@@ -465,6 +463,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 		synchronized (this.lifeCycleMonitor) {
 			if (this.replyContainer != null) {
 				this.replyContainer.stop();
+				this.deleteDestinationIfTemporary(this.replyContainer.getDestination());
 			}
 			this.active = false;
 		}
@@ -522,8 +521,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 	private javax.jms.Message sendAndReceiveWithContainer(Message<?> requestMessage) throws JMSException {
 		Connection connection = this.createConnection();
 		Session session = null;
-		Assert.state(this.replyDestination != null, "Use of a listener container requires a Destination");
-		Destination replyTo = this.replyDestination;
+		Destination replyTo = this.replyContainer.getDestination();
 		try {
 			session = this.createSession(connection);
 
@@ -785,5 +783,44 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 				logger.warn("Failed to consume reply with correlationId " + correlationId, e);
 			}
 		}
+	}
+
+	private class GatewayReplyListenerContainer extends SimpleMessageListenerContainer {
+
+		@Override
+		protected void initializeConsumers() throws JMSException {
+			/*
+			 * If we are listening on a temporary queue and we're re-connecting,
+			 * need to zot the destination.
+			 */
+			if (this.getDestination() instanceof TemporaryQueue) {
+				new DirectFieldAccessor(this).setPropertyValue("destination", null);
+				new DirectFieldAccessor(this).setPropertyValue("consumers", null);
+			}
+			super.initializeConsumers();
+		}
+
+		@Override
+		protected MessageConsumer createListenerConsumer(Session session) throws JMSException {
+			Destination destination = this.getDestination();
+			String destinationName = this.getDestinationName();
+			if (destination == null && !StringUtils.hasText(destinationName)) {
+				destination = session.createTemporaryQueue();
+				this.setDestination(destination);
+			}
+			if (destination == null) {
+				destination = resolveDestinationName(session, this.getDestinationName());
+				this.setDestination(destination);
+			}
+			return super.createListenerConsumer(session);
+		}
+
+		@Override
+		protected void validateConfiguration() {
+			if (isSubscriptionDurable() && !isPubSubDomain()) {
+				throw new IllegalArgumentException("A durable subscription requires a topic (pub-sub domain)");
+			}
+		}
+
 	}
 }

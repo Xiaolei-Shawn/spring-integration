@@ -51,8 +51,12 @@ import scala.actors.threadpool.Executors;
  */
 public class OutboundGatewayFunctionTests {
 
+	private static Destination requestQueue = new ActiveMQQueue("request");
+
+	private static Destination replyQueue = new ActiveMQQueue("reply");
+
 	@Test
-	public void testGeneratedCid() throws Exception {
+	public void testContainerWithDest() throws Exception {
 		BeanFactory beanFactory = mock(BeanFactory.class);
 		when(beanFactory.containsBean(IntegrationContextUtils.TASK_SCHEDULER_BEAN_NAME)).thenReturn(true);
 		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
@@ -61,10 +65,11 @@ public class OutboundGatewayFunctionTests {
 			.thenReturn(scheduler);
 		final JmsOutboundGateway gateway = new JmsOutboundGateway();
 		gateway.setBeanFactory(beanFactory);
-		gateway.setConnectionFactory(getConnectionFactory());
-		gateway.setRequestDestination(getRequestQueue());
-		gateway.setReplyDestination(getReplyQueue());
+		gateway.setConnectionFactory(getGatewayConnectionFactory());
+		gateway.setRequestDestination(requestQueue);
+		gateway.setReplyDestination(replyQueue);
 		gateway.setCorrelationKey("JMSCorrelationID");
+		gateway.setUseReplyContainer(true);
 		gateway.afterPropertiesSet();
 		gateway.start();
 		final AtomicReference<Object> reply = new AtomicReference<Object>();
@@ -83,9 +88,9 @@ public class OutboundGatewayFunctionTests {
 		});
 		assertTrue(latch1.await(10, TimeUnit.SECONDS));
 		JmsTemplate template = new JmsTemplate();
-		template.setConnectionFactory(getConnectionFactory());
+		template.setConnectionFactory(getTemplateConnectionFactory());
 		template.setReceiveTimeout(5000);
-		javax.jms.Message request = template.receive(getRequestQueue());
+		javax.jms.Message request = template.receive(requestQueue);
 		assertNotNull(request);
 		final javax.jms.Message jmsReply = request;
 		template.send(request.getJMSReplyTo(), new MessageCreator() {
@@ -100,16 +105,113 @@ public class OutboundGatewayFunctionTests {
 		gateway.stop();
 	}
 
-	private ConnectionFactory getConnectionFactory() {
+	@Test
+	public void testContainerWithDestName() throws Exception {
+		BeanFactory beanFactory = mock(BeanFactory.class);
+		when(beanFactory.containsBean(IntegrationContextUtils.TASK_SCHEDULER_BEAN_NAME)).thenReturn(true);
+		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+		scheduler.initialize();
+		when(beanFactory.getBean(IntegrationContextUtils.TASK_SCHEDULER_BEAN_NAME, TaskScheduler.class))
+			.thenReturn(scheduler);
+		final JmsOutboundGateway gateway = new JmsOutboundGateway();
+		gateway.setBeanFactory(beanFactory);
+		gateway.setConnectionFactory(getGatewayConnectionFactory());
+		gateway.setRequestDestination(requestQueue);
+		gateway.setReplyDestinationName("reply");
+		gateway.setCorrelationKey("JMSCorrelationID");
+		gateway.setUseReplyContainer(true);
+		gateway.afterPropertiesSet();
+		gateway.start();
+		final AtomicReference<Object> reply = new AtomicReference<Object>();
+		final CountDownLatch latch1 = new CountDownLatch(1);
+		final CountDownLatch latch2 = new CountDownLatch(1);
+		Executors.newSingleThreadExecutor().execute(new Runnable() {
+			public void run() {
+				latch1.countDown();
+				try {
+					reply.set(gateway.handleRequestMessage(new GenericMessage<String>("foo")));
+				}
+				finally {
+					latch2.countDown();
+				}
+			}
+		});
+		assertTrue(latch1.await(10, TimeUnit.SECONDS));
+		JmsTemplate template = new JmsTemplate();
+		template.setConnectionFactory(getTemplateConnectionFactory());
+		template.setReceiveTimeout(5000);
+		javax.jms.Message request = template.receive(requestQueue);
+		assertNotNull(request);
+		final javax.jms.Message jmsReply = request;
+		template.send(request.getJMSReplyTo(), new MessageCreator() {
+
+			public Message createMessage(Session session) throws JMSException {
+				return jmsReply;
+			}
+		});
+		assertTrue(latch2.await(10, TimeUnit.SECONDS));
+		assertNotNull(reply.get());
+
+		gateway.stop();
+	}
+
+	@Test
+	public void testContainerWithTemporary() throws Exception {
+		BeanFactory beanFactory = mock(BeanFactory.class);
+		when(beanFactory.containsBean(IntegrationContextUtils.TASK_SCHEDULER_BEAN_NAME)).thenReturn(true);
+		ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+		scheduler.initialize();
+		when(beanFactory.getBean(IntegrationContextUtils.TASK_SCHEDULER_BEAN_NAME, TaskScheduler.class))
+			.thenReturn(scheduler);
+		final JmsOutboundGateway gateway = new JmsOutboundGateway();
+		gateway.setBeanFactory(beanFactory);
+		gateway.setConnectionFactory(getGatewayConnectionFactory());
+		gateway.setRequestDestination(requestQueue);
+		gateway.setCorrelationKey("JMSCorrelationID");
+		gateway.setUseReplyContainer(true);
+		gateway.afterPropertiesSet();
+		gateway.start();
+		final AtomicReference<Object> reply = new AtomicReference<Object>();
+		final CountDownLatch latch1 = new CountDownLatch(1);
+		final CountDownLatch latch2 = new CountDownLatch(1);
+		Executors.newSingleThreadExecutor().execute(new Runnable() {
+			public void run() {
+				latch1.countDown();
+				try {
+					reply.set(gateway.handleRequestMessage(new GenericMessage<String>("foo")));
+				}
+				finally {
+					latch2.countDown();
+				}
+			}
+		});
+		assertTrue(latch1.await(10, TimeUnit.SECONDS));
+		JmsTemplate template = new JmsTemplate();
+		template.setConnectionFactory(getTemplateConnectionFactory());
+		template.setReceiveTimeout(5000);
+		javax.jms.Message request = template.receive(requestQueue);
+		assertNotNull(request);
+		final javax.jms.Message jmsReply = request;
+		template.send(request.getJMSReplyTo(), new MessageCreator() {
+
+			public Message createMessage(Session session) throws JMSException {
+				return jmsReply;
+			}
+		});
+		assertTrue(latch2.await(10, TimeUnit.SECONDS));
+		assertNotNull(reply.get());
+
+		gateway.stop();
+	}
+
+	private ConnectionFactory getTemplateConnectionFactory() {
+		ConnectionFactory amqConnectionFactory = new ActiveMQConnectionFactory("vm://localhost?broker.persistent=false");
+		return amqConnectionFactory;
+	}
+
+	private ConnectionFactory getGatewayConnectionFactory() {
 		ConnectionFactory amqConnectionFactory = new ActiveMQConnectionFactory("vm://localhost?broker.persistent=false");
 		return new CachingConnectionFactory(amqConnectionFactory);
 	}
 
-	private Destination getRequestQueue() {
-		return new ActiveMQQueue("request");
-	}
-
-	private Destination getReplyQueue() {
-		return new ActiveMQQueue("reply");
-	}
 }
