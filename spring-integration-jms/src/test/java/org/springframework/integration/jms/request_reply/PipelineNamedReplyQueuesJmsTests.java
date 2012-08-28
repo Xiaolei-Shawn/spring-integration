@@ -142,40 +142,44 @@ public class PipelineNamedReplyQueuesJmsTests {
 		this.timeouts = 0;
 		ActiveMqTestUtils.prepare();
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext(contextConfig, this.getClass());
-		final RequestReplyExchanger gateway = context.getBean(RequestReplyExchanger.class);
-		final CountDownLatch latch = new CountDownLatch(requests);
-		final AtomicInteger successCounter = new AtomicInteger();
-		final AtomicInteger timeoutCounter = new AtomicInteger();
-		final AtomicInteger failureCounter = new AtomicInteger();
+		try {
+			final RequestReplyExchanger gateway = context.getBean(RequestReplyExchanger.class);
+			final CountDownLatch latch = new CountDownLatch(requests);
+			final AtomicInteger successCounter = new AtomicInteger();
+			final AtomicInteger timeoutCounter = new AtomicInteger();
+			final AtomicInteger failureCounter = new AtomicInteger();
 
-		for (int i = 0; i < requests; i++) {
-			final int y = i;
-			executor.execute(new Runnable() {
-				public void run() {
-					try {
-						assertEquals(y + offset, gateway.exchange(new GenericMessage<Integer>(y)).getPayload());
-						successCounter.incrementAndGet();
-					} catch (MessageTimeoutException e) {
-						timeoutCounter.incrementAndGet();
-					} catch (Throwable t) {
-						t.printStackTrace();
-						failureCounter.incrementAndGet();
-					} finally {
-						latch.countDown();
+			for (int i = 0; i < requests; i++) {
+				final int y = i;
+				executor.execute(new Runnable() {
+					public void run() {
+						try {
+							assertEquals(y + offset, gateway.exchange(new GenericMessage<Integer>(y)).getPayload());
+							successCounter.incrementAndGet();
+						} catch (MessageTimeoutException e) {
+							timeoutCounter.incrementAndGet();
+						} catch (Throwable t) {
+							t.printStackTrace();
+							failureCounter.incrementAndGet();
+						} finally {
+							latch.countDown();
+						}
 					}
-				}
-			});
+				});
+			}
+			assertTrue(latch.await(60, TimeUnit.SECONDS));
+			System.out.println("Success: " + successCounter.get());
+			System.out.println("Timeout: " + timeoutCounter.get());
+			System.out.println("Failure: " + failureCounter.get());
+			// technically all we care that its > 0,
+			// but reality of this test it has to be something more then 0
+			assertTrue(successCounter.get() > 10);
+			assertEquals(0, failureCounter.get());
+			assertEquals(requests, successCounter.get() + timeoutCounter.get());
+			this.timeouts = timeoutCounter.get();
 		}
-		assertTrue(latch.await(60, TimeUnit.SECONDS));
-		System.out.println("Success: " + successCounter.get());
-		System.out.println("Timeout: " + timeoutCounter.get());
-		System.out.println("Failure: " + failureCounter.get());
-		// technically all we care that its > 0,
-		// but reality of this test it has to be something more then 0
-		assertTrue(successCounter.get() > 10);
-		assertEquals(0, failureCounter.get());
-		assertEquals(requests, successCounter.get() + timeoutCounter.get());
-		this.timeouts = timeoutCounter.get();
-		context.destroy();
+		finally {
+			context.destroy();
+		}
 	}
 }

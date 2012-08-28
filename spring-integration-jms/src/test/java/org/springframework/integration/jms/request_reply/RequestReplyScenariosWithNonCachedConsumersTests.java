@@ -25,8 +25,7 @@ import javax.jms.Session;
 import javax.jms.TextMessage;
 
 import org.junit.Test;
-
-import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.AbstractApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.integration.MessageTimeoutException;
 import org.springframework.integration.gateway.RequestReplyExchanger;
@@ -42,116 +41,135 @@ public class RequestReplyScenariosWithNonCachedConsumersTests {
 	@Test(expected=MessageTimeoutException.class)
 	public void messageCorrelationBasedOnRequestMessageIdOptimized() throws Exception{
 		ActiveMqTestUtils.prepare();
-		ApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("optimizedMessageId", RequestReplyExchanger.class);
-		ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+		AbstractApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
+		try {
+			RequestReplyExchanger gateway = context.getBean("optimizedMessageId", RequestReplyExchanger.class);
+			ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
-		final Destination requestDestination = context.getBean("siOutQueueC", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueC", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueC", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueC", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSMessageID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSMessageID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	@Test
 	public void messageCorrelationBasedOnRequestMessageIdNonOptimized() throws Exception{
 		ActiveMqTestUtils.prepare();
-		ApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("nonoptimizedMessageId", RequestReplyExchanger.class);
-		ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+		AbstractApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
+		try {
+			RequestReplyExchanger gateway = context.getBean("nonoptimizedMessageId", RequestReplyExchanger.class);
+			ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
-		final Destination requestDestination = context.getBean("siOutQueueD", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueD", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueD", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueD", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
-
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSMessageID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSMessageID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	@Test
 	public void messageCorrelationBasedOnRequestCorrelationIdOptimized() throws Exception{
 		ActiveMqTestUtils.prepare();
-		ApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("optimized", RequestReplyExchanger.class);
-		ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+		AbstractApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
+		try {
+			RequestReplyExchanger gateway = context.getBean("optimized", RequestReplyExchanger.class);
+			ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
-		final Destination requestDestination = context.getBean("siOutQueueA", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueA", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueA", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueA", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	@Test(expected=MessageTimeoutException.class)
 	public void messageCorrelationBasedOnRequestCorrelationIdNonOptimized() throws Exception{
 		ActiveMqTestUtils.prepare();
-		ApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("nonoptimized", RequestReplyExchanger.class);
-		ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+		AbstractApplicationContext context = new ClassPathXmlApplicationContext("producer-no-cached-consumers.xml", this.getClass());
+		try {
+			RequestReplyExchanger gateway = context.getBean("nonoptimized", RequestReplyExchanger.class);
+			ConnectionFactory connectionFactory = context.getBean(ConnectionFactory.class);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
-		final Destination requestDestination = context.getBean("siOutQueueB", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueB", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueB", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueB", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 }

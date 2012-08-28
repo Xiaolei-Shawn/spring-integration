@@ -29,7 +29,6 @@ import javax.jms.Session;
 import javax.jms.TextMessage;
 
 import org.junit.Test;
-
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.integration.MessageTimeoutException;
 import org.springframework.integration.gateway.RequestReplyExchanger;
@@ -55,30 +54,35 @@ public class RequestReplyScenariosWithCachedConsumersTests {
 		ActiveMqTestUtils.prepare();
 
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("producer-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("standardMessageIdCopyingConsumerWithOptimization", RequestReplyExchanger.class);
-		CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+		try {
+			RequestReplyExchanger gateway = context.getBean("standardMessageIdCopyingConsumerWithOptimization", RequestReplyExchanger.class);
+			CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
 
-		final Destination requestDestination = context.getBean("siOutQueueOptimizedA", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueOptimizedA", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueOptimizedA", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueOptimizedA", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSMessageID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		gateway.exchange(new GenericMessage<String>("foo"));
-		context.close();
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSMessageID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			gateway.exchange(new GenericMessage<String>("foo"));
+		}
+		finally {
+			context.destroy();
+		}
+
 	}
 
 	@Test
@@ -86,93 +90,105 @@ public class RequestReplyScenariosWithCachedConsumersTests {
 		ActiveMqTestUtils.prepare();
 
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("producer-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("standardMessageIdCopyingConsumerWithoutOptimization", RequestReplyExchanger.class);
-		CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+		try {
+			RequestReplyExchanger gateway = context.getBean("standardMessageIdCopyingConsumerWithoutOptimization", RequestReplyExchanger.class);
+			CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
 
-		final Destination requestDestination = context.getBean("siOutQueueNonOptimizedB", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueNonOptimizedB", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueNonOptimizedB", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueNonOptimizedB", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSMessageID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
-		context.close();
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSMessageID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	@Test
 	public void messageCorrelationBasedOnRequestCorrelationIdOptimized() throws Exception{
 		ActiveMqTestUtils.prepare();
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("producer-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("correlationPropagatingConsumerWithOptimization", RequestReplyExchanger.class);
-		CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+		try {
+			RequestReplyExchanger gateway = context.getBean("correlationPropagatingConsumerWithOptimization", RequestReplyExchanger.class);
+			CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
 
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
-		final Destination requestDestination = context.getBean("siOutQueueOptimizedC", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueOptimizedC", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueOptimizedC", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueOptimizedC", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
-		context.close();
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	@Test(expected=MessageTimeoutException.class)
 	public void messageCorrelationBasedOnRequestCorrelationIdNonOptimized() throws Exception{
 		ActiveMqTestUtils.prepare();
 		ClassPathXmlApplicationContext context = new ClassPathXmlApplicationContext("producer-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway = context.getBean("correlationPropagatingConsumerWithoutOptimization", RequestReplyExchanger.class);
-		CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
+		try {
+			RequestReplyExchanger gateway = context.getBean("correlationPropagatingConsumerWithoutOptimization", RequestReplyExchanger.class);
+			CachingConnectionFactory connectionFactory = context.getBean(CachingConnectionFactory.class);
 
-		final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
+			final JmsTemplate jmsTemplate = new JmsTemplate(connectionFactory);
 
-		final Destination requestDestination = context.getBean("siOutQueueNonOptimizedD", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueNonOptimizedD", Destination.class);
-		new Thread(new Runnable() {
+			final Destination requestDestination = context.getBean("siOutQueueNonOptimizedD", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueNonOptimizedD", Destination.class);
+			new Thread(new Runnable() {
 
-			public void run() {
-				final Message requestMessage = jmsTemplate.receive(requestDestination);
-				jmsTemplate.send(replyDestination, new MessageCreator() {
+				public void run() {
+					final Message requestMessage = jmsTemplate.receive(requestDestination);
+					jmsTemplate.send(replyDestination, new MessageCreator() {
 
-					public Message createMessage(Session session) throws JMSException {
-						TextMessage message = session.createTextMessage();
-						message.setText("bar");
-						message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
-						return message;
-					}
-				});
-			}
-		}).start();
-		org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
-		assertEquals("bar", siReplyMessage.getPayload());
-		context.close();
+						public Message createMessage(Session session) throws JMSException {
+							TextMessage message = session.createTextMessage();
+							message.setText("bar");
+							message.setJMSCorrelationID(requestMessage.getJMSCorrelationID());
+							return message;
+						}
+					});
+				}
+			}).start();
+			org.springframework.integration.Message<?> siReplyMessage = gateway.exchange(new GenericMessage<String>("foo"));
+			assertEquals("bar", siReplyMessage.getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	@Test
@@ -180,58 +196,61 @@ public class RequestReplyScenariosWithCachedConsumersTests {
 		ActiveMqTestUtils.prepare();
 		ClassPathXmlApplicationContext context =
 				new ClassPathXmlApplicationContext("producer-cached-consumers.xml", this.getClass());
-		RequestReplyExchanger gateway =
-				context.getBean("correlationPropagatingConsumerWithOptimizationDelayFirstReply", RequestReplyExchanger.class);
-		final ConnectionFactory connectionFactory = context.getBean("connectionFactory", ConnectionFactory.class);
+		try {
+			RequestReplyExchanger gateway =
+					context.getBean("correlationPropagatingConsumerWithOptimizationDelayFirstReply", RequestReplyExchanger.class);
+			final ConnectionFactory connectionFactory = context.getBean("connectionFactory", ConnectionFactory.class);
 
-		final Destination requestDestination = context.getBean("siOutQueueE", Destination.class);
-		final Destination replyDestination = context.getBean("siInQueueE", Destination.class);
+			final Destination requestDestination = context.getBean("siOutQueueE", Destination.class);
+			final Destination replyDestination = context.getBean("siInQueueE", Destination.class);
 
-		for (int i = 0; i < 3; i++) {
-			System.out.println("#### " + i);
-			try {
-				gateway.exchange(gateway.exchange(new GenericMessage<String>("foo")));
-			} catch (Exception e) {/*ignore*/}
+			for (int i = 0; i < 3; i++) {
+				System.out.println("#### " + i);
+				try {
+					gateway.exchange(gateway.exchange(new GenericMessage<String>("foo")));
+				} catch (Exception e) {/*ignore*/}
 
-		}
-
-		final CountDownLatch latch = new CountDownLatch(1);
-		new Thread(new Runnable() {
-
-			public void run() {
-				DefaultMessageListenerContainer dmlc = new DefaultMessageListenerContainer();
-				dmlc.setConnectionFactory(connectionFactory);
-				dmlc.setDestination(requestDestination);
-				dmlc.setMessageListener(new SessionAwareMessageListener<Message>() {
-
-					public void onMessage(Message message, Session session) {
-						String requestPayload = (String) extractPayload(message);
-						try {
-							TextMessage replyMessage = session.createTextMessage();
-							replyMessage.setText(requestPayload);
-							replyMessage.setJMSCorrelationID(message.getJMSCorrelationID());
-							MessageProducer producer = session.createProducer(replyDestination);
-							producer.send(replyMessage);
-						} catch (Exception e) {
-							// ignore. the test will fail
-						}
-					}
-				});
-				dmlc.afterPropertiesSet();
-				dmlc.start();
-				latch.countDown();
 			}
-		}).start();
 
-		latch.await();
+			final CountDownLatch latch = new CountDownLatch(1);
+			new Thread(new Runnable() {
+
+				public void run() {
+					DefaultMessageListenerContainer dmlc = new DefaultMessageListenerContainer();
+					dmlc.setConnectionFactory(connectionFactory);
+					dmlc.setDestination(requestDestination);
+					dmlc.setMessageListener(new SessionAwareMessageListener<Message>() {
+
+						public void onMessage(Message message, Session session) {
+							String requestPayload = (String) extractPayload(message);
+							try {
+								TextMessage replyMessage = session.createTextMessage();
+								replyMessage.setText(requestPayload);
+								replyMessage.setJMSCorrelationID(message.getJMSCorrelationID());
+								MessageProducer producer = session.createProducer(replyDestination);
+								producer.send(replyMessage);
+							} catch (Exception e) {
+								// ignore. the test will fail
+							}
+						}
+					});
+					dmlc.afterPropertiesSet();
+					dmlc.start();
+					latch.countDown();
+				}
+			}).start();
+
+			latch.await();
 
 
 
-		TestUtils.getPropertyValue(context.getBean("fastGateway"), "handler", JmsOutboundGateway.class).setReceiveTimeout(10000);
-		Thread.sleep(1000);
-		assertEquals("bar", gateway.exchange(new GenericMessage<String>("bar")).getPayload());
-
-		context.close();
+			TestUtils.getPropertyValue(context.getBean("fastGateway"), "handler", JmsOutboundGateway.class).setReceiveTimeout(10000);
+			Thread.sleep(1000);
+			assertEquals("bar", gateway.exchange(new GenericMessage<String>("bar")).getPayload());
+		}
+		finally {
+			context.destroy();
+		}
 	}
 
 	private Object extractPayload(Message jmsMessage) {

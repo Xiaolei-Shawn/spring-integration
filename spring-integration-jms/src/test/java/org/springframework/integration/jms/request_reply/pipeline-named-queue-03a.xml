@@ -17,10 +17,10 @@
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline03a-01"
 	    correlation-key="JMSCorrelationID"
-		request-destination-name="siOutQueue"/>
+		request-destination-name="siOutQueue03a"/>
 	
 	<int-jms:inbound-gateway request-channel="jmsIn"
-		request-destination-name="siOutQueue"
+		request-destination-name="siOutQueue03a"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -36,10 +36,12 @@
 	<int-jms:outbound-gateway request-channel="anotherGatewayChannel"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline03a-01"
-		request-destination-name="anotherGatewayQueue"/>
+	    correlation-key="corr03a"
+		request-destination-name="anotherGatewayQueue03a"/>
 		
 	<int-jms:inbound-gateway request-channel="anotherIn"
-		request-destination-name="anotherGatewayQueue"
+		request-destination-name="anotherGatewayQueue03a"
+		correlation-key="corr03a"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -48,14 +50,16 @@
 
 	<int-jms:outbound-gateway request-channel="toThird"
 		reply-channel="add10kOnTheWayBack"
+		correlation-key="corr03a"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline03a-01"
-		request-destination-name="thirdGatewayQueue"/>
+		request-destination-name="thirdGatewayQueue03a"/>
 
 	<int:transformer input-channel="add10kOnTheWayBack" expression="payload + 10000" />
 		
 	<int-jms:inbound-gateway request-channel="thirdIn"
-		request-destination-name="thirdGatewayQueue"
+		request-destination-name="thirdGatewayQueue03a"
+		correlation-key="corr03a"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -66,7 +70,7 @@
 		class="org.springframework.jms.connection.CachingConnectionFactory">
 		<property name="targetConnectionFactory">
 			<bean class="org.apache.activemq.ActiveMQConnectionFactory">
-				<property name="brokerURL" value="vm://localhost"/>
+				<property name="brokerURL" value="vm://localhost?broker.persistent=false" />
 			</bean>
 		</property>
 		<property name="sessionCacheSize" value="10"/>

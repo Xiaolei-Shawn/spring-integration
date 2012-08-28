@@ -16,10 +16,12 @@
 	<int-jms:outbound-gateway request-channel="pipeline02"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline02a-01"
-		request-destination-name="siOutQueue"/>
+	    correlation-key="corr02a"
+		request-destination-name="siOutQueue02a"/>
 	
 	<int-jms:inbound-gateway request-channel="jmsIn"
-		request-destination-name="siOutQueue"
+		request-destination-name="siOutQueue02a"
+		correlation-key="corr02a"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -35,10 +37,12 @@
 	<int-jms:outbound-gateway request-channel="anotherGatewayChannel"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline02a-01"
-		request-destination-name="anotherGatewayQueue"/>
+	   	correlation-key="corr02a"
+		request-destination-name="anotherGatewayQueue02a"/>
 		
 	<int-jms:inbound-gateway request-channel="anotherIn"
-		request-destination-name="anotherGatewayQueue"
+		request-destination-name="anotherGatewayQueue02a"
+		correlation-key="corr02a"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -48,10 +52,12 @@
 	<int-jms:outbound-gateway request-channel="toThird"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline02a-01"
-		request-destination-name="thirdGatewayQueue"/>
+		correlation-key="corr02a"
+		request-destination-name="thirdGatewayQueue02a"/>
 		
 	<int-jms:inbound-gateway request-channel="thirdIn"
-		request-destination-name="thirdGatewayQueue"
+		request-destination-name="thirdGatewayQueue02a"
+		correlation-key="corr02a"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -62,7 +68,7 @@
 		class="org.springframework.jms.connection.CachingConnectionFactory">
 		<property name="targetConnectionFactory">
 			<bean class="org.apache.activemq.ActiveMQConnectionFactory">
-				<property name="brokerURL" value="vm://localhost"/>
+				<property name="brokerURL" value="vm://localhosti?broker.persistent=false" />
 			</bean>
 		</property>
 		<property name="sessionCacheSize" value="10"/>
