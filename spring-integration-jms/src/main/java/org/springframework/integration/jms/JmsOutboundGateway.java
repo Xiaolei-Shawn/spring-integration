@@ -137,7 +137,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 
 	private final Object lifeCycleMonitor = new Object();
 
-	private volatile boolean useReplyContainer = true; // false?
+	private volatile boolean useReplyContainer = true; // TODO: false after namespace support?
 
 
 	/**
@@ -436,8 +436,8 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 			/*
 			 *  this is needed because SimpleMessageListenerContainer doesn't support SingleConnectionFactory.
 			 */
-			if (this.useReplyContainer && this.connectionFactory instanceof SingleConnectionFactory ?
-					!CachingConnectionFactory.class.isAssignableFrom(this.connectionFactory.getClass()) : false) {
+			if (this.useReplyContainer && this.connectionFactory instanceof SingleConnectionFactory &&
+					!CachingConnectionFactory.class.isAssignableFrom(this.connectionFactory.getClass())) {
 				if (logger.isWarnEnabled()) {
 					logger.warn("Cannot use a listener container with a SingleConnectionFactory, falling back to legacy");
 				}
@@ -756,29 +756,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 
 			this.sendRequestMessage(jmsRequest, messageProducer, priority);
 
-			javax.jms.Message reply = null;
-
-			if (this.receiveTimeout < 0) {
-				reply = replyQueue.poll();
-			}
-			else {
-				try {
-					reply = replyQueue.poll(this.receiveTimeout, TimeUnit.MILLISECONDS);
-				}
-				catch (InterruptedException e) {
-					logger.error("Interrupted while awaiting reply; treated as a timeout", e);
-					Thread.currentThread().interrupt();
-				}
-			}
-			if (logger.isDebugEnabled()) {
-				if (reply == null) {
-					logger.debug(this.getComponentName() + " Timed out waiting for reply with CorrelationId " + correlationId);
-				}
-				else {
-					logger.debug(this.getComponentName() + " Obtained reply with CorrelationId " + correlationId);
-				}
-			}
-			return reply;
+			return obtainReplyFromContainer(correlationId, replyQueue);
 		}
 		finally {
 			JmsUtils.closeMessageProducer(messageProducer);
@@ -804,6 +782,9 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 			}
 			this.replies.put(correlationId, replyQueue);
 
+			/*
+			 * Check to see if the reply arrived before we obtained the correlationId
+			 */
 			synchronized (this.earlyOrLateReplies) {
 				TimedReply timedReply = this.earlyOrLateReplies.remove(correlationId);
 				if (timedReply != null) {
@@ -814,34 +795,39 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 				}
 			}
 
-			javax.jms.Message reply = null;
-
-			if (this.receiveTimeout < 0) {
-				reply = replyQueue.poll();
-			}
-			else {
-				try {
-					reply = replyQueue.poll(this.receiveTimeout, TimeUnit.MILLISECONDS);
-				}
-				catch (InterruptedException e) {
-					logger.error("Interrupted while awaiting reply; treated as a timeout", e);
-					Thread.currentThread().interrupt();
-				}
-			}
-			if (logger.isDebugEnabled()) {
-				if (reply == null) {
-					logger.debug(this.getComponentName() + " Timed out waiting for reply with CorrelationId " + correlationId);
-				}
-				else {
-					logger.debug(this.getComponentName() + " Obtained reply with CorrelationId " + correlationId);
-				}
-			}
-			return reply;
+			return obtainReplyFromContainer(correlationId, replyQueue);
 		}
 		finally {
 			JmsUtils.closeMessageProducer(messageProducer);
 			this.replies.remove(correlationId);
 		}
+	}
+
+	private javax.jms.Message obtainReplyFromContainer(String correlationId,
+			LinkedBlockingQueue<javax.jms.Message> replyQueue) {
+		javax.jms.Message reply = null;
+
+		if (this.receiveTimeout < 0) {
+			reply = replyQueue.poll();
+		}
+		else {
+			try {
+				reply = replyQueue.poll(this.receiveTimeout, TimeUnit.MILLISECONDS);
+			}
+			catch (InterruptedException e) {
+				logger.error("Interrupted while awaiting reply; treated as a timeout", e);
+				Thread.currentThread().interrupt();
+			}
+		}
+		if (logger.isDebugEnabled()) {
+			if (reply == null) {
+				logger.debug(this.getComponentName() + " Timed out waiting for reply with CorrelationId " + correlationId);
+			}
+			else {
+				logger.debug(this.getComponentName() + " Obtained reply with CorrelationId " + correlationId);
+			}
+		}
+		return reply;
 	}
 
 	private void sendRequestMessage(javax.jms.Message jmsRequest, MessageProducer messageProducer, int priority) throws JMSException {
@@ -918,7 +904,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 					}
 				}
 			}
-			else {
+			if (queue != null) {
 				if (logger.isDebugEnabled()) {
 					logger.debug("Received reply with correlationId " + correlationId);
 				}
@@ -934,12 +920,11 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 
 	private class GatewayReplyListenerContainer extends SimpleMessageListenerContainer {
 
-
 		@Override
 		protected void initializeConsumers() throws JMSException {
 			/*
 			 * If we are listening on a temporary queue and we're re-connecting,
-			 * need to zot the destination.
+			 * need to zot the destination and consumers.
 			 */
 			if (this.getDestination() instanceof TemporaryQueue) {
 				new DirectFieldAccessor(this).setPropertyValue("destination", null);
@@ -952,6 +937,7 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 		protected MessageConsumer createListenerConsumer(Session session) throws JMSException {
 			Destination destination = this.getDestination();
 			String destinationName = this.getDestinationName();
+			// create a temporary queue if no destination
 			if (destination == null && !StringUtils.hasText(destinationName)) {
 				destination = session.createTemporaryQueue();
 				this.setDestination(destination);
