@@ -433,11 +433,26 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 				this.requestDestinationExpressionProcessor.setBeanFactory(getBeanFactory());
 				this.requestDestinationExpressionProcessor.setConversionService(getConversionService());
 			}
-			// this kludge is needed because SimpleMessageListenerContainer doesn't support SingleConnectionFactory
+			/*
+			 *  this is needed because SimpleMessageListenerContainer doesn't support SingleConnectionFactory.
+			 */
 			if (this.useReplyContainer && this.connectionFactory instanceof SingleConnectionFactory ?
 					!CachingConnectionFactory.class.isAssignableFrom(this.connectionFactory.getClass()) : false) {
 				if (logger.isWarnEnabled()) {
 					logger.warn("Cannot use a listener container with a SingleConnectionFactory, falling back to legacy");
+				}
+				this.useReplyContainer = false;
+			}
+			/*
+			 *  This is needed because there is no way to enforce 2 or more gateways using the same reply queue
+			 *  with no correlation key.
+			 *  TODO: Should we really enforce this, or just WARN? legacy actually doesn't work either.
+			 */
+			if (this.useReplyContainer && (this.correlationKey == null &&
+					(this.replyDestination != null || this.replyDestinationName != null))) {
+				if (logger.isWarnEnabled()) {
+					logger.warn("Cannot use a listener container with no correlation key and a specified destination(Name); " +
+							"falling back to legacy");
 				}
 				this.useReplyContainer = false;
 			}
@@ -457,15 +472,6 @@ public class JmsOutboundGateway extends AbstractReplyProducingMessageHandler imp
 				if (this.correlationKey != null) {
 					messageSelector = this.correlationKey + " LIKE '" + this.gatewayCorrelation + "%'";
 					container.setMessageSelector(messageSelector);
-				}
-				else {
-					// TODO: Should we assert this to be safe?
-					if (this.replyDestination != null || StringUtils.hasText(this.replyDestinationName)) {
-						if (logger.isWarnEnabled()) {
-							logger.warn("Using a listener container with a specified replyDestination(Name) requires " +
-									"a unique destination for each gateway - this cannot be enforced");
-						}
-					}
 				}
 				container.setMessageListener(this);
 				container.afterPropertiesSet();

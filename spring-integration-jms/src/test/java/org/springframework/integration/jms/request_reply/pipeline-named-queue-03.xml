@@ -36,10 +36,12 @@
 	<int-jms:outbound-gateway request-channel="anotherGatewayChannel"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline03-02"
+	    correlation-key="corr03"
 		request-destination-name="anotherGatewayQueue03"/>
 		
 	<int-jms:inbound-gateway request-channel="anotherIn"
 		request-destination-name="anotherGatewayQueue03"
+		correlation-key="corr03"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>
@@ -49,10 +51,12 @@
 	<int-jms:outbound-gateway request-channel="toThird"
 	    connection-factory="connectionFactory" 
 	    reply-destination-name="pipeline03-03"
+	    correlation-key="corr03"
 		request-destination-name="thirdGatewayQueue03"/>
 		
 	<int-jms:inbound-gateway request-channel="thirdIn"
 		request-destination-name="thirdGatewayQueue03"
+		correlation-key="corr03"
 		connection-factory="connectionFactory"
 		concurrent-consumers="10"
 		reply-timeout="10000"/>

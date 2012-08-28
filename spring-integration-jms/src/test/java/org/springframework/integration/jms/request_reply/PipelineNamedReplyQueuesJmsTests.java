@@ -168,6 +168,7 @@ public class PipelineNamedReplyQueuesJmsTests {
 				});
 			}
 			assertTrue(latch.await(60, TimeUnit.SECONDS));
+			System.out.println(contextConfig);
 			System.out.println("Success: " + successCounter.get());
 			System.out.println("Timeout: " + timeoutCounter.get());
 			System.out.println("Failure: " + failureCounter.get());
