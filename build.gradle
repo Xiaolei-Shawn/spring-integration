@@ -407,6 +407,7 @@ project('spring-integration-ip') {
 	dependencies {
 		compile project(":spring-integration-core")
 		compile "org.springframework:spring-context:$springVersion"
+		compile "commons-codec:commons-codec:1.5"
 		runtime project(":spring-integration-stream")
 		testCompile project(":spring-integration-test")
 	}

@@ -44,8 +44,14 @@ public abstract class AbstractSockJsDeserializer<T> implements StatefulDeseriali
 
 	private final Map<InputStream, BasicState> streamState = new ConcurrentHashMap<InputStream, BasicState>();
 
+	private volatile boolean simpleData;
+
 	void setMaxMessageSize(int maxMessageSize) {
 		this.maxMessageSize = maxMessageSize;
+	}
+
+	public void setSimpleData(boolean simpleData) {
+		this.simpleData = simpleData;
 	}
 
 	protected BasicState getStreamState(InputStream inputStream) {
@@ -87,7 +93,7 @@ public abstract class AbstractSockJsDeserializer<T> implements StatefulDeseriali
 				state.setGzipping(true);
 			}
 		}
-		System.out.println(cookies);
+//		System.out.println(cookies);
 		dataList.add(new SockJsFrame(SockJsFrame.TYPE_HEADERS, frameData));
 		if (cookies.length() > 8) {
 			dataList.add(new SockJsFrame(SockJsFrame.TYPE_COOKIES, cookies));
@@ -107,9 +113,13 @@ public abstract class AbstractSockJsDeserializer<T> implements StatefulDeseriali
 	}
 
 	public abstract T deserialize(InputStream inputStream) throws IOException;
-	
+
 	protected SockJsFrame decodeToFrame(String data) {
-		if (data.length() == 1 && data.equals("h")) {
+		if (this.simpleData) {
+			System.out.println("Received data:" + data);
+			return new SockJsFrame(SockJsFrame.TYPE_DATA, data);
+		}
+		else if (data.length() == 1 && data.equals("h")) {
 			System.out.println("Received:SockJS-Heartbeat");
 			return new SockJsFrame(SockJsFrame.TYPE_HEARTBEAT, data);
 		}

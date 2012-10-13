@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,7 +27,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.core.serializer.Serializer;
 import org.springframework.integration.ip.tcp.serializer.SoftEndOfStreamException;
+import org.springframework.integration.ip.tcp.sockjs.SockJsUtils;
 import org.springframework.integration.ip.tcp.sockjs.support.SockJsFrame;
+import org.springframework.util.Assert;
 
 /**
  * @author Gary Russell
@@ -35,9 +38,18 @@ import org.springframework.integration.ip.tcp.sockjs.support.SockJsFrame;
  */
 public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame> implements Serializer<String> {
 
+	private static final String HTTP_1_1_101_WEB_SOCKET_PROTOCOL_HANDSHAKE_SPRING_INTEGRATION =
+			"HTTP/1.1 101 Web Socket Protocol Handshake - Spring Integration\r\n";
+
 	private final Log logger = LogFactory.getLog(this.getClass());
 
-	private Map<InputStream, StringBuilder> fragments = new ConcurrentHashMap<InputStream, StringBuilder>();
+	private final Map<InputStream, StringBuilder> fragments = new ConcurrentHashMap<InputStream, StringBuilder>();
+
+	private volatile boolean server;
+
+	public void setServer(boolean server) {
+		this.server = server;
+	}
 
 	public void removeFragments(InputStream inputStream) {
 		this.fragments.remove(inputStream);
@@ -45,6 +57,10 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 
 	public void serialize(final String data, OutputStream outputStream)
 			throws IOException {
+		if (data.startsWith(HTTP_1_1_101_WEB_SOCKET_PROTOCOL_HANDSHAKE_SPRING_INTEGRATION)) {
+			outputStream.write(data.getBytes());
+			return;
+		}
 		int lenBytes;
 		int payloadLen = 0x80; //masked
 		boolean pong = data.startsWith("pong:");
@@ -78,18 +94,30 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 			buffer.putLong(length);
 		}
 
-		buffer.putInt(mask);
 		byte[] maskBytes = new byte[4];
-		buffer.position(buffer.position() - 4);
-		buffer.get(maskBytes);
+		if (!server) {
+			buffer.putInt(mask);
+			buffer.position(buffer.position() - 4);
+			buffer.get(maskBytes);
+		}
 		byte[] bytes = theData.getBytes("UTF-8");
 		for (int i = 0; i < bytes.length; i++) {
-			buffer.put((byte) (bytes[i] ^ maskBytes[i % 4]));
+			if (server) {
+				buffer.put(bytes[i]);
+			}
+			else {
+				buffer.put((byte) (bytes[i] ^ maskBytes[i % 4]));
+			}
 		}
 		outputStream.write(buffer.array());
 	}
 
+	@Override
 	public SockJsFrame deserialize(InputStream inputStream) throws IOException {
+		List<SockJsFrame> headers = checkStreaming(inputStream);
+		if (headers != null) {
+			return headers.get(0);
+		}
 		int bite;
 		if (logger.isDebugEnabled()) {
 			logger.debug("Available to read:" + inputStream.available());
@@ -97,12 +125,14 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 		boolean done = false;
 		int len = 0;
 		int n = 0;
-		int m = 0;
+		int dataInx = 0;
 		byte[] buffer = null;
 		boolean fin = false;
 		boolean ping = false;
 		boolean pong = false;
 		int lenBytes = 0;
+		byte[] mask = new byte[4];
+		int maskInx = 0;
 		while (!done ) {
 			bite = inputStream.read();
 //			logger.debug("Read:" + Integer.toHexString(bite));
@@ -137,6 +167,12 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 				}
 				break;
 			case 1:
+				if (this.server) {
+					if ((bite & 0x80) == 0) {
+						throw new IOException("Illegal: Expected masked data from client");
+					}
+					bite &= 0x7f;
+				}
 				if ((bite & 0x80) > 0) {
 					throw new IOException("Illegal: Received masked data from server");
 				}
@@ -173,8 +209,16 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 					break;
 				}
 			default:
-				buffer[m++] = (byte) bite;
-				done = m >= len;
+				if (this.server && maskInx < 4) {
+					mask[maskInx++] = (byte) bite;
+				}
+				else {
+					if (this.server) {
+						bite ^= mask[dataInx % 4];
+					}
+					buffer[dataInx++] = (byte) bite;
+				}
+				done = dataInx >= len;
 			}
 		};
 		String data =  new String(buffer, "UTF-8");
@@ -206,6 +250,7 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 		}
 	}
 
+	@Override
 	protected void checkClosure(int bite) throws IOException {
 		if (bite < 0) {
 			logger.debug("Socket closed during message assembly");
@@ -213,9 +258,27 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 		}
 	}
 
+	@Override
 	public void removeState(InputStream inputStream) {
 		super.removeState(inputStream);
 		this.removeFragments(inputStream);
+	}
+
+	public String generateHandshake(SockJsFrame frame) throws Exception {
+		Assert.isTrue(frame.getType() == SockJsFrame.TYPE_HEADERS, "Expected headers:" + frame);
+		String[] headers = frame.getPayload().split("\\r\\n");
+		String key = null;
+		for (String header : headers) {
+			if (header.toLowerCase().startsWith("sec-websocket-key")) {
+				key = header.split(":")[1].trim();
+				break;
+			}
+		}
+		String handshake = HTTP_1_1_101_WEB_SOCKET_PROTOCOL_HANDSHAKE_SPRING_INTEGRATION +
+						   "Upgrade: WebSocket\r\n" +
+						   "Connection: Upgrade\r\n" +
+						   "Sec-WebSocket-Accept: " + SockJsUtils.generateWebSocketAccept(key) + "\r\n\r\n";
+		return handshake;
 	}
 
 }
