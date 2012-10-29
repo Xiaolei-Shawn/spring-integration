@@ -45,6 +45,14 @@
 				<listitem>Returned Messages</listitem>
 				<listitem>Support for Dead Letter Exchanges/Dead Letter Queues</listitem>
 			</itemizedlist>
+			<para>
+			  In addition, previously, AMQP-backed Message Channels used a transactional AMQP Channel
+			  on the receive side by default; on the send side, the AMQP Channel was not
+			  transactional by default. With this release, both the sending and
+			  receiving side use non-transactional channels by default. To use
+			  a transactional channel on both the sending and receiving side, set the
+			  <emphasis>channel-transacted</emphasis> attribute to <code>true</code>.
+			</para>
 		</section>
 		<section id="2.2-redis-store-adapters">
 			<title>RedisStore Inbound and Outbound Channel Adapters</title>

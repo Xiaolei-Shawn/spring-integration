@@ -17,6 +17,8 @@
 package org.springframework.integration.amqp.config;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
@@ -50,6 +52,7 @@ public class AmqpChannelParserTests {
 		assertEquals(TestInterceptor.class, interceptorList.get(0).getClass());
 		assertEquals(Integer.MAX_VALUE, TestUtils.getPropertyValue(
 				TestUtils.getPropertyValue(channel, "dispatcher"), "maxSubscribers", Integer.class).intValue());
+		assertFalse(TestUtils.getPropertyValue(channel, "container.transactional", Boolean.class));
 	}
 
 	@Test
@@ -57,6 +60,7 @@ public class AmqpChannelParserTests {
 		MessageChannel channel = context.getBean("channelWithSubscriberLimit", MessageChannel.class);
 		assertEquals(1, TestUtils.getPropertyValue(
 				TestUtils.getPropertyValue(channel, "dispatcher"), "maxSubscribers", Integer.class).intValue());
+		assertTrue(TestUtils.getPropertyValue(channel, "container.transactional", Boolean.class));
 	}
 
 

@@ -108,10 +108,7 @@ public class AmqpChannelFactoryBean extends AbstractFactoryBean<AbstractAmqpChan
 
 	private volatile AcknowledgeMode acknowledgeMode;
 
-	/**
-	 * This value differs from the container implementations' default (which is false).
-	 */
-	private volatile boolean channelTransacted = true;
+	private volatile Boolean channelTransacted;
 
 	private volatile Executor taskExecutor;
 
@@ -350,7 +347,9 @@ public class AmqpChannelFactoryBean extends AbstractFactoryBean<AbstractAmqpChan
 			container.setAdviceChain(this.adviceChain);
 		}
 		container.setAutoStartup(this.autoStartup);
-		container.setChannelTransacted(this.channelTransacted);
+		if (this.channelTransacted != null) {
+			container.setChannelTransacted(this.channelTransacted);
+		}
 		if (this.concurrentConsumers != null) {
 			container.setConcurrentConsumers(this.concurrentConsumers);
 		}
