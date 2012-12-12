@@ -24,27 +24,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.integration.Message;
 import org.springframework.integration.annotation.Header;
 import org.springframework.integration.ip.IpHeaders;
 import org.springframework.integration.support.MessageBuilder;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 /**
  * @author Gary Russell
  * @since 2.2
  *
  */
-@ContextConfiguration
-@RunWith(SpringJUnit4ClassRunner.class)
+//@ContextConfiguration
+//@RunWith(SpringJUnit4ClassRunner.class)
 public class WebSocketServerTests {
 
-	@Test
-	public void test() throws Exception {
-		Thread.sleep(60000);
+	public static void main(String[] args) throws Exception {
+		new ClassPathXmlApplicationContext(WebSocketServerTests.class.getSimpleName() + "-context.xml", WebSocketServerTests.class);
+		System.out.println("Hit Enter To Terminate...");
+		System.in.read();
+		System.exit(0);
 	}
 
 	public static class DemoService {
@@ -81,11 +80,15 @@ public class WebSocketServerTests {
 						.setHeader(IpHeaders.CONNECTION_ID, entry.getKey())
 						.build();
 				messages.add(message);
-				logger.info("Sending " + message.getPayload() + " to connection " + entry.getKey());
+				logger.warn("Sending " + message.getPayload() + " to connection " + entry.getKey());
 			}
 			return messages;
 		}
 
+		public void remove(String connetionId) {
+			logger.warn("Error on write; removing " + connetionId);
+			clients.remove(connetionId);
+		}
 	}
 
 }

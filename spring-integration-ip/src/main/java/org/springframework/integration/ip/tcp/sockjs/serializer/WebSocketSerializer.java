@@ -62,7 +62,7 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 			return;
 		}
 		int lenBytes;
-		int payloadLen = 0x80; //masked
+		int payloadLen = this.server ? 0 : 0x80; //masked
 		boolean pong = data.startsWith("pong:");
 		String theData = pong ? data.substring(5) : data;
 		int length = theData.length();
@@ -109,7 +109,7 @@ public class WebSocketSerializer extends AbstractSockJsDeserializer<SockJsFrame>
 				buffer.put((byte) (bytes[i] ^ maskBytes[i % 4]));
 			}
 		}
-		outputStream.write(buffer.array());
+		outputStream.write(buffer.array(), 0, buffer.position());
 	}
 
 	@Override

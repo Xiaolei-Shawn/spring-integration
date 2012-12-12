@@ -39,7 +39,7 @@
 	</int:chain>
 
 	<int:inbound-channel-adapter ref="service" method="getNext" channel="out">
-		<int:poller fixed-delay="1000" />
+		<int:poller fixed-delay="1000" error-channel="removeSocket" />
 	</int:inbound-channel-adapter>
 
 	<int:splitter input-channel="out" output-channel="toBrowser" />
@@ -52,4 +52,10 @@
 
 	<int-stream:stdout-channel-adapter append-newline="true" channel="stdOut" />
 
+	<int:channel id="removeSocket" />
+
+	<int:chain input-channel="removeSocket">
+		<int:transformer expression="payload.failedMessage.headers['ip_connectionId']" />
+		<int:service-activator ref="service" method="remove" />
+	</int:chain>
 </beans>
