@@ -537,10 +537,26 @@ public abstract class AbstractConnectionFactory extends IntegrationObjectSupport
 				else if (soTimeout > 0) {
 					TcpNioConnection connection = connections.get(channel);
 					if (now - connection.getLastRead() > this.soTimeout) {
-						logger.warn("Timing out TcpNioConnection " +
-									this.port + " : " +
-								    connection.getConnectionId());
-						connection.timeout();
+						/*
+						 * For client connections, we have to wait for 2 timeouts if the last
+						 * send was within the current timeout.
+						 */
+						if (!connection.isServer() &&
+							now - connection.getLastSend() < this.soTimeout &&
+							now - connection.getLastRead() < this.soTimeout * 2)
+						{
+							if (logger.isDebugEnabled()) {
+								logger.debug("Skipping a connection timeout because we have a recent send");
+							}
+						}
+						else {
+							if (logger.isWarnEnabled()) {
+								logger.warn("Timing out TcpNioConnection " +
+											this.port + " : " +
+										    connection.getConnectionId());
+							}
+							connection.timeout();
+						}
 					}
 				}
 			}
