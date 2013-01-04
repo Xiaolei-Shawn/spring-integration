@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:int-ip="http://www.springframework.org/schema/integration/ip"
+	xmlns:int-stream="http://www.springframework.org/schema/integration/stream"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xsi:schemaLocation="http://www.springframework.org/schema/integration/ip http://www.springframework.org/schema/integration/ip/spring-integration-ip-2.2.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd
+		http://www.springframework.org/schema/integration/stream http://www.springframework.org/schema/integration/stream/spring-integration-stream.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+
+	<bean id="scf" class="org.springframework.integration.ip.zmq.ZmqRepServerConnectionFactory">
+		<constructor-arg value="5555" />
+	</bean>
+
+	<bean id="ccf" class="org.springframework.integration.ip.zmq.ZmqReqClientConnectionFactory">
+		<constructor-arg value="localhost" />
+		<constructor-arg value="5555" />
+	</bean>
+
+	<int-stream:stdin-channel-adapter channel="stdin"/>
+
+	<int:channel id="stdin" />
+
+	<int:poller default="true" fixed-rate="5000" />
+
+	<int-ip:tcp-outbound-gateway request-channel="stdin"
+		reply-channel="stdout"
+		connection-factory="ccf" />
+
+	<int:channel id="stdout" />
+
+	<int-stream:stdout-channel-adapter channel="stdout" append-newline="true"/>
+
+	<int-ip:tcp-inbound-gateway request-channel="echo"
+		connection-factory="scf" />
+
+	<int:service-activator input-channel="echo" expression="'echo:' + payload" />	
+</beans>

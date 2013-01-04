@@ -87,10 +87,14 @@ public abstract class TcpConnectionSupport implements TcpConnection {
 			}
 		}
 		int port = socket.getPort();
-		this.connectionId = this.hostName + ":" + port + ":" + UUID.randomUUID().toString();
+		establishConnectionId(this.hostName, port);
 		try {
 			this.soLinger = socket.getSoLinger();
 		} catch (SocketException e) { }
+	}
+
+	protected void establishConnectionId(String hostName, int port) {
+		this.connectionId = hostName + ":" + port + ":" + UUID.randomUUID().toString();
 	}
 
 	public void afterSend(Message<?> message) throws Exception {
