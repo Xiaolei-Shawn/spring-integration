@@ -172,7 +172,7 @@
 		<section id="file-writing-file-names">
 			<title>Generating Filenames</title>
 			<para>
-				In its simplest form the <classname>FileWritingMessageHandler</classname>
+				In its simplest form, the <classname>FileWritingMessageHandler</classname>
 				only requires a destination directory for writing the files. The
 				name of the file to be written is determined by the handler's
 				<classname><ulink url="http://static.springsource.org/spring-integration/api/org/springframework/integration/file/FileNameGenerator.html">FileNameGenerator</ulink></classname>.
@@ -181,30 +181,28 @@
 				as <code><ulink url="http://static.springsource.org/spring-integration/api/constant-values.html#org.springframework.integration.file.FileHeaders.FILENAME">FileHeaders.FILENAME</ulink></code>.
 			</para>
 			<para>
-				Alternatively, you can specify an <emphasis></emphasis> expression
+				Alternatively, you can specify an expression
 				to be evaluated against the Message in order to generate a file name, e.g.:
-				<emphasis>headers['myCustomHeader']</emphasis>. For convenience
-				purposes, the <emphasis>DefaultFileNameGenerator</emphasis> also
+				<emphasis>headers['myCustomHeader'] + '.foo'</emphasis>. The expression must
+				evaluate to a <classname>String</classname>. For convenience,
+				the <classname>DefaultFileNameGenerator</classname> also
 				provides the <emphasis>setHeaderName</emphasis> method, allowing you
 				to explicitly specify the Message header whose value shall be
 				used as the filename.
 			</para>
 			<para>
-				Once setup, the <emphasis>DefaultFileNameGenerator</emphasis> will
+				Once setup, the <classname>DefaultFileNameGenerator</classname> will
 				employ the following resolution steps to determine the filename
 				for a given Message payload:
 			</para>
 			<orderedlist>
 				<listitem>
-					Evaluate the expression again the Message
-				</listitem>
-				<listitem>
-					If evaluated to a <classname>String</classname> and the
-					<classname>String</classname> being not-empty, use it as the
+					Evaluate the expression against the Message and, if the result is a
+					non-empty <classname>String</classname>, use it as the
 					filename.
 				</listitem>
 				<listitem>
-					If the payload is a <classname>File</classname>, use the
+					Otherwise, if the payload is a <classname>java.io.File</classname>, use the
 					file's filename.
 				</listitem>
 				<listitem>
@@ -213,28 +211,27 @@
 				</listitem>
 			</orderedlist>
 			<para>
-				When using the XML namerspace support, both, the
+				When using the XML namespace support, both, the
 				<emphasis>File Oubound Channel Adapter</emphasis> and
-				the <emphasis>File Outbound Gateway</emphasis> provide the
-				following two mutaully exclusive configuration attributes:
+				the <emphasis>File Outbound Gateway</emphasis> support the
+				following two mutually exclusive configuration attributes:
 			</para>
 			<itemizedlist>
-				<listitem>filename-generator</listitem>
-				<listitem>filename-generator-expression</listitem>
+				<listitem><code>filename-generator</code> (a reference to a <classname>FileNameGenerator</classname>) implementation)</listitem>
+				<listitem><code>filename-generator-expression</code> (an expression evaluating to a <classname>String</classname>)</listitem>
 			</itemizedlist>
 			<para>
-				While writing files, a temporary file suffix will be used. By
-				default <quote>.writing</quote> is appended to the filename while
-				the file is being written. In order to customize the suffix, you
+				While writing files, a temporary file suffix will be used (default:
+				<quote>.writing</quote>). It is appended to the filename while
+				the file is being written. To customize the suffix, you
 				can set the <emphasis>temporary-file-suffix</emphasis> attribute
-				for both, the <emphasis>File Oubound Channel Adapter</emphasis> and
+				on both, the <emphasis>File Oubound Channel Adapter</emphasis> and
 				the <emphasis>File Outbound Gateway</emphasis>.
 			</para>
 			<note>
 				When using the <emphasis>APPEND</emphasis> file <emphasis>mode</emphasis>,
 				the <emphasis>temporary-file-suffix</emphasis> attribute is ignored,
-				since the append is done to the actual file and not its temporary
-				counterpart.
+				since the data is appended to the file directly.
 			</note>
 		</section>
 		<section id="file-writing-output-directory">
