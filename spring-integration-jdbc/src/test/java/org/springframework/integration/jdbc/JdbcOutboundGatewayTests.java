@@ -12,15 +12,29 @@
  */
 package org.springframework.integration.jdbc;
 
+import static junit.framework.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import javax.sql.DataSource;
 
 import junit.framework.Assert;
 
-import static junit.framework.Assert.assertEquals;
-
+import org.aopalliance.aop.Advice;
 import org.junit.Test;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import org.springframework.integration.Message;
+import org.springframework.integration.MessageHandlingException;
+import org.springframework.integration.channel.QueueChannel;
+import org.springframework.integration.handler.advice.AbstractRequestHandlerAdvice;
+import org.springframework.integration.message.ErrorMessage;
+import org.springframework.integration.message.GenericMessage;
 import org.springframework.jdbc.core.JdbcOperations;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 
@@ -109,5 +123,76 @@ public class JdbcOutboundGatewayTests {
 
 		fail("Expected an IllegalArgumentException to be thrown.");
 
+	}
+
+	@Test
+	public void testRowReturned() {
+		ResourceLoader resourceLoader = new ResourceLoader() {
+
+			public Resource getResource(String location) {
+				byte[] ddl = "CREATE TABLE FOO (ID VARCHAR(1));".getBytes();
+				return new ByteArrayResource(ddl);
+			}
+
+			public ClassLoader getClassLoader() {
+				return this.getClass().getClassLoader();
+			}
+		};
+		DataSource dataSource = new EmbeddedDatabaseBuilder(resourceLoader)
+			.addScript("foo")
+			.build();
+
+		JdbcOutboundGateway jdbcOutboundGateway = new JdbcOutboundGateway(dataSource, "insert into FOO VALUES('x')",
+				"select * from FOO");
+
+		@SuppressWarnings("unchecked")
+		Message<Map<?, ?>> result = (Message<Map<?, ?>>) jdbcOutboundGateway.handleRequestMessage(new GenericMessage<String>(""));
+		assertNotNull(result);
+		assertEquals("x", result.getPayload().entrySet().iterator().next().getValue());
+	}
+
+	@Test
+	public void testNoRowsReturned() {
+		ResourceLoader resourceLoader = new ResourceLoader() {
+
+			public Resource getResource(String location) {
+				byte[] ddl = "CREATE TABLE BAR (ID VARCHAR(1));".getBytes();
+				return new ByteArrayResource(ddl);
+			}
+
+			public ClassLoader getClassLoader() {
+				return this.getClass().getClassLoader();
+			}
+		};
+		DataSource dataSource = new EmbeddedDatabaseBuilder(resourceLoader)
+			.addScript("foo")
+			.build();
+
+		JdbcOutboundGateway jdbcOutboundGateway = new JdbcOutboundGateway(dataSource, "insert into BAR VALUES('x')",
+				"select * from BAR where ID = 'y'");
+
+		List<Advice> adviceChain = new ArrayList<Advice>();
+		adviceChain.add(new AbstractRequestHandlerAdvice() {
+
+			@Override
+			protected Object doInvoke(ExecutionCallback callback, Object target, Message<?> message) throws Exception {
+				Object result = callback.execute();
+				if (result == null) {
+					result = new ErrorMessage(new MessageHandlingException(message, "No results returned from gateway"));
+				}
+				return result;
+			}
+		});
+
+		jdbcOutboundGateway.setAdviceChain(adviceChain);
+		QueueChannel outputChannel = new QueueChannel();
+		jdbcOutboundGateway.setOutputChannel(outputChannel);
+		jdbcOutboundGateway.afterPropertiesSet();
+
+		jdbcOutboundGateway.handleMessage(new GenericMessage<String>(""));
+
+		Message<?> result = outputChannel.receive(100);
+		assertNotNull(result);
+		assertEquals("No results returned from gateway", ((MessageHandlingException) result.getPayload()).getMessage());
 	}
 }
