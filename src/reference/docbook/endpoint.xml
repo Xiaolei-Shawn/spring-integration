@@ -604,19 +604,26 @@ any transaction configuration essentially allowing you to enhance the behavior o
      </para>
      <important>
          <para>
-             Although Spring Framework allows simply to add a <emphasis>conversionService</emphasis> bean to the Application Context
-             (see <ulink url="http://static.springsource.org/spring/docs/current/spring-framework-reference/html/validation.html#core-convert-Spring-config">Configuring a ConversionService</ulink> chapter),
-             and to have appropriate conversions on beans' creation and configuration phase, it's important that Spring Integration provides
-             it's own <emphasis>integrationConversionService</emphasis> with separate configuration. The reason is:
-             Converters that are intended for use when wiring bean constructor-args and properties
-             that would actually produce unintended consequences if used at runtime for Spring Integration expression-evaluation against
-             Messages, within Datatype Channels, Payload Type transformers etc.
+             When configuring an <emphasis>Application Context</emphasis>, the
+             Spring Framework allows you to add a <emphasis>conversionService</emphasis> bean
+             (see <ulink url="http://static.springsource.org/spring/docs/current/spring-framework-reference/html/validation.html#core-convert-Spring-config">
+             Configuring a ConversionService</ulink> chapter). This service is used, when needed,
+             to perform appropriate conversions during bean creation and configuration.
          </para>
          <para>
-			 Of course, if there is a reason to use <emphasis>conversionService</emphasis> as <emphasis>integrationConversionService</emphasis>,
-			 it's just enough to add one more line to the Application Context:
-			 <programlisting language="xml"><![CDATA[<alias name="conversionService" alias="integrationConversionService"/>]]></programlisting>
-			 In this case all <emphasis>conversionService</emphasis>'s Converters will be available for Spring Integration message flows.
+             In contrast, the <emphasis>integrationConversionService</emphasis> is used for runtime conversions.
+             These uses are quite different; converters that are intended for use when wiring bean
+             constructor-args and properties may produce unintended results if used at runtime
+             for Spring Integration expression evaluation against
+             Messages within Datatype Channels, Payload Type transformers etc.
+         </para>
+         <para>
+             However, if you do want to use the Spring <emphasis>conversionService</emphasis> as
+             the Spring Integration <emphasis>integrationConversionService</emphasis>,
+             you can configure an <emphasis>alias</emphasis> in the Application Context:
+             <programlisting language="xml"><![CDATA[<alias name="conversionService" alias="integrationConversionService"/>]]></programlisting>
+             In this case the <emphasis>conversionService</emphasis>'s Converters will be available for Spring Integration
+             runtime conversion.
          </para>
 	  </important>
 
