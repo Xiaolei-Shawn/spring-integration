@@ -27,6 +27,9 @@ import org.springframework.core.convert.ConversionService;
 import org.springframework.core.convert.TypeDescriptor;
 import org.springframework.core.convert.support.DefaultConversionService;
 import org.springframework.expression.TypeConverter;
+import org.springframework.integration.MessageHeaders;
+import org.springframework.integration.history.MessageHistory;
+import org.springframework.util.ClassUtils;
 
 /**
  * @author Dave Syer
@@ -108,7 +111,16 @@ public class BeanFactoryTypeConverter implements TypeConverter, BeanFactoryAware
 		 *  Also INT-2650 - don't convert large byte[]
 		 *  This reverts the effective logic to Spring 3.0.
 		 */
-		if (sourceType != null && sourceType.isAssignableTo(targetType)) {
+		if (sourceType != null && sourceType.getType() == MessageHeaders.class
+				&& targetType.getType() == MessageHeaders.class) {
+			return value;
+		}
+		if (sourceType != null && sourceType.getType() == MessageHistory.class
+				&& targetType.getType() == MessageHistory.class) {
+			return value;
+		}
+		if (sourceType != null && sourceType.isAssignableTo(targetType)
+				&& ClassUtils.isPrimitiveArray(sourceType.getType())) {
 			return value;
 		}
 		if (conversionService.canConvert(sourceType, targetType)) {
