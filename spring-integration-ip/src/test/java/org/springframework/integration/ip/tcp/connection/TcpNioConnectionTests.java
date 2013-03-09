@@ -17,12 +17,15 @@
 package org.springframework.integration.ip.tcp.connection;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Field;
@@ -35,6 +38,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +50,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import javax.net.ServerSocketFactory;
 
@@ -53,9 +58,13 @@ import org.junit.Test;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
+import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.integration.Message;
 import org.springframework.integration.ip.tcp.serializer.ByteArrayCrLfSerializer;
+import org.springframework.integration.ip.tcp.serializer.MapJsonSerializer;
 import org.springframework.integration.support.MessageBuilder;
+import org.springframework.integration.support.converter.MapMessageConverter;
 import org.springframework.integration.test.util.SocketUtils;
 import org.springframework.integration.test.util.TestUtils;
 import org.springframework.util.ReflectionUtils;
@@ -69,6 +78,11 @@ import org.springframework.util.ReflectionUtils.FieldFilter;
  *
  */
 public class TcpNioConnectionTests {
+
+	private final ApplicationEventPublisher nullPublisher = new ApplicationEventPublisher() {
+		public void publishEvent(ApplicationEvent event) {
+		}
+	};
 
 	@Test
 	public void testWriteTimeout() throws Exception {
@@ -335,6 +349,70 @@ public class TcpNioConnectionTests {
 		});
 		future.get(60, TimeUnit.SECONDS);
 		assertTrue(messageLatch.await(10, TimeUnit.SECONDS));
+	}
+
+	@Test
+	public void transferHeaders() throws Exception {
+		Socket inSocket = mock(Socket.class);
+		SocketChannel inChannel = mock(SocketChannel.class);
+		when(inChannel.socket()).thenReturn(inSocket);
+
+		TcpNioConnection inboundConnection = new TcpNioConnection(inChannel, true, false, nullPublisher, null);
+		inboundConnection.setDeserializer(new MapJsonSerializer());
+		MapMessageConverter inConverter = new MapMessageConverter();
+		MessageConvertingTcpMessageMapper inMapper = new MessageConvertingTcpMessageMapper(inConverter);
+		inboundConnection.setMapper(inMapper);
+		final ByteArrayOutputStream written = new ByteArrayOutputStream();
+		doAnswer(new Answer<Integer>() {
+			public Integer answer(InvocationOnMock invocation) throws Throwable {
+				ByteBuffer buff = (ByteBuffer) invocation.getArguments()[0];
+				byte[] bytes = written.toByteArray();
+				buff.put(bytes);
+				return bytes.length;
+			}
+		}).when(inChannel).read(any(ByteBuffer.class));
+
+		Socket outSocket = mock(Socket.class);
+		SocketChannel outChannel = mock(SocketChannel.class);
+		when(outChannel.socket()).thenReturn(outSocket);
+		TcpNioConnection outboundConnection = new TcpNioConnection(outChannel, true, false, nullPublisher, null);
+		doAnswer(new Answer<Object>() {
+			public Object answer(InvocationOnMock invocation) throws Throwable {
+				ByteBuffer buff = (ByteBuffer) invocation.getArguments()[0];
+				byte[] bytes = new byte[buff.limit()];
+				buff.get(bytes);
+				written.write(bytes);
+				return null;
+			}
+		}).when(outChannel).write(any(ByteBuffer.class));
+
+		MapMessageConverter outConverter = new MapMessageConverter();
+		outConverter.setHeaderNames(Collections.singletonList("bar"));
+		MessageConvertingTcpMessageMapper outMapper = new MessageConvertingTcpMessageMapper(outConverter);
+		outboundConnection.setMapper(outMapper);
+		outboundConnection.setSerializer(new MapJsonSerializer());
+
+		Message<String> message = MessageBuilder.withPayload("foo")
+				.setHeader("bar", "baz")
+				.build();
+		outboundConnection.send(message);
+
+		final AtomicReference<Message<?>> inboundMessage = new AtomicReference<Message<?>>();
+		final CountDownLatch latch = new CountDownLatch(1);
+		TcpListener listener = new TcpListener() {
+
+			public boolean onMessage(Message<?> message) {
+				inboundMessage.set(message);
+				latch.countDown();
+				return false;
+			}
+		};
+		inboundConnection.registerListener(listener);
+		inboundConnection.readPacket();
+		assertTrue(latch.await(10, TimeUnit.SECONDS));
+		assertNotNull(inboundMessage.get());
+		assertEquals("foo", inboundMessage.get().getPayload());
+		assertEquals("baz", inboundMessage.get().getHeaders().get("bar"));
 	}
 
 	private void readFully(InputStream is, byte[] buff) throws IOException {
