@@ -219,7 +219,7 @@ public class TcpMessageMapperTests {
 				.setHeader("bar", "baz")
 				.build();
 		MapMessageConverter converter = new MapMessageConverter();
-		converter.setHeaderNames(Collections.singletonList("bar"));
+		converter.setHeaderNames("bar");
 		MessageConvertingTcpMessageMapper mapper = new MessageConvertingTcpMessageMapper(converter);
 		Map<?, ?> map = (Map<?, ?>) mapper.fromMessage(message);
 		MapJsonSerializer serializer = new MapJsonSerializer();
@@ -257,7 +257,7 @@ public class TcpMessageMapperTests {
 				.setHeader("bar", "baz")
 				.build();
 		MapMessageConverter converter = new MapMessageConverter();
-		converter.setHeaderNames(Collections.singletonList("bar"));
+		converter.setHeaderNames("bar");
 		MessageConvertingTcpMessageMapper mapper = new MessageConvertingTcpMessageMapper(converter);
 		Map<?, ?> map = (Map<?, ?>) mapper.fromMessage(outMessage);
 		DefaultSerializer serializer = new DefaultSerializer();

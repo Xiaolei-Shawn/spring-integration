@@ -15,12 +15,12 @@
  */
 package org.springframework.integration.support.converter;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 
 import org.springframework.integration.Message;
 import org.springframework.integration.support.MessageBuilder;
@@ -34,7 +34,7 @@ import org.springframework.util.Assert;
  */
 public class MapMessageConverter implements MessageConverter {
 
-	private volatile Set<String> headerNames = new HashSet<String>();
+	private volatile Collection<String> headerNames = new ArrayList<String>(0);
 
 	private volatile boolean filterHeadersInToMessage;
 
@@ -44,10 +44,10 @@ public class MapMessageConverter implements MessageConverter {
 	 * the map, unless {@link #filterHeadersInToMessage} is true.
 	 * @param headerNames
 	 */
-	public void setHeaderNames(Collection<String> headerNames) {
-		Set<String> newHeaderNames = new HashSet<String>();
-		newHeaderNames.addAll(headerNames);
-		this.headerNames = newHeaderNames;
+	public void setHeaderNames(String... headerNames) {
+		Assert.notNull(headerNames, "'headerNames' cannot be null");
+		Assert.noNullElements(headerNames, "'headerNames' cannot contain null elements");
+		this.headerNames = new HashSet<String>(Arrays.asList(headerNames));
 	}
 
 	/**
@@ -71,11 +71,10 @@ public class MapMessageConverter implements MessageConverter {
 		@SuppressWarnings("unchecked")
 		Map<String, ?> headers = (Map<String, ?>) map.get("headers");
 		if (headers != null) {
-			for (Entry<String, ?> entry : headers.entrySet()) {
-				if (this.filterHeadersInToMessage ? this.headerNames.contains(entry.getKey()) : true) {
-					messageBuilder.setHeader(entry.getKey(), entry.getValue());
-				}
+			if (this.filterHeadersInToMessage) {
+				headers.keySet().retainAll(this.headerNames);
 			}
+			messageBuilder.copyHeaders(headers);
 		}
 		@SuppressWarnings("unchecked")
 		Message<P> convertedMessage = (Message<P>) messageBuilder.build();

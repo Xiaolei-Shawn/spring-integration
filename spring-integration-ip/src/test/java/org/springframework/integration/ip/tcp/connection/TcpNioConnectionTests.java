@@ -38,7 +38,6 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -387,7 +386,7 @@ public class TcpNioConnectionTests {
 		}).when(outChannel).write(any(ByteBuffer.class));
 
 		MapMessageConverter outConverter = new MapMessageConverter();
-		outConverter.setHeaderNames(Collections.singletonList("bar"));
+		outConverter.setHeaderNames("bar");
 		MessageConvertingTcpMessageMapper outMapper = new MessageConvertingTcpMessageMapper(outConverter);
 		outboundConnection.setMapper(outMapper);
 		outboundConnection.setSerializer(new MapJsonSerializer());

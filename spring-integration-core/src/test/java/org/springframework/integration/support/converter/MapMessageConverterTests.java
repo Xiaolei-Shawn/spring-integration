@@ -21,7 +21,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.fail;
 
-import java.util.Collections;
 import java.util.Map;
 
 import org.junit.Test;
@@ -40,9 +39,10 @@ public class MapMessageConverterTests {
 		Message<String> message = MessageBuilder.withPayload("foo")
 				.setHeader("bar", "baz")
 				.setHeader("baz", "qux")
+				.setHeader("fix", "buz")
 				.build();
 		MapMessageConverter converter = new MapMessageConverter();
-		converter.setHeaderNames(Collections.singletonList("bar"));
+		converter.setHeaderNames("bar", "fix");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> map =  (Map<String, Object>) converter.fromMessage(message);
 		@SuppressWarnings("unchecked")
@@ -54,12 +54,14 @@ public class MapMessageConverterTests {
 		assertNotNull(headers.get("bar"));
 		assertEquals("baz", headers.get("bar"));
 		assertNull(headers.get("baz"));
+		assertEquals("buz", headers.get("fix"));
 
 		headers.put("baz", "qux");
 		message = converter.toMessage(map);
 		assertEquals("foo", message.getPayload());
 		assertEquals("baz", message.getHeaders().get("bar"));
 		assertEquals("qux", message.getHeaders().get("baz"));
+		assertEquals("buz", message.getHeaders().get("fix"));
 
 		converter.setFilterHeadersInToMessage(true);
 
@@ -67,6 +69,7 @@ public class MapMessageConverterTests {
 		assertEquals("foo", message.getPayload());
 		assertEquals("baz", message.getHeaders().get("bar"));
 		assertNull(message.getHeaders().get("baz"));
+		assertEquals("buz", message.getHeaders().get("fix"));
 	}
 
 	@Test
@@ -76,7 +79,7 @@ public class MapMessageConverterTests {
 				.setHeader("baz", "qux")
 				.build();
 		MapMessageConverter converter = new MapMessageConverter();
-		converter.setHeaderNames(Collections.singletonList("bar"));
+		converter.setHeaderNames("bar");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> map =  (Map<String, Object>) converter.fromMessage(message);
 
@@ -94,7 +97,7 @@ public class MapMessageConverterTests {
 		Message<String> message = MessageBuilder.withPayload("foo")
 				.build();
 		MapMessageConverter converter = new MapMessageConverter();
-		converter.setHeaderNames(Collections.singletonList("bar"));
+		converter.setHeaderNames("bar");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> map =  (Map<String, Object>) converter.fromMessage(message);
 		@SuppressWarnings("unchecked")
@@ -111,9 +114,10 @@ public class MapMessageConverterTests {
 	public void testNotIncludedIfNull() throws Exception {
 		Message<String> message = MessageBuilder.withPayload("foo")
 				.setHeader("bar", null)
+				.setHeader("qux", "fix")
 				.build();
 		MapMessageConverter converter = new MapMessageConverter();
-		converter.setHeaderNames(Collections.singletonList("bar"));
+		converter.setHeaderNames("bar", "qux");
 		@SuppressWarnings("unchecked")
 		Map<String, Object> map =  (Map<String, Object>) converter.fromMessage(message);
 		@SuppressWarnings("unchecked")
@@ -123,6 +127,7 @@ public class MapMessageConverterTests {
 		assertNotNull(map.get("payload"));
 		assertEquals("foo", map.get("payload"));
 		assertFalse(headers.keySet().contains("bar"));
-		assertEquals(0, headers.size());
+		assertEquals(1, headers.size());
+		assertEquals("fix", message.getHeaders().get("qux"));
 	}
 }

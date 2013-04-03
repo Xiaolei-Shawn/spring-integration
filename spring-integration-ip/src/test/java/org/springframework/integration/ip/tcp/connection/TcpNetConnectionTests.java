@@ -27,7 +27,6 @@ import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.net.Socket;
 import java.nio.channels.SocketChannel;
-import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.logging.Log;
@@ -115,7 +114,7 @@ public class TcpNetConnectionTests {
 		when(outSocket.getOutputStream()).thenReturn(baos);
 
 		MapMessageConverter outConverter = new MapMessageConverter();
-		outConverter.setHeaderNames(Collections.singletonList("bar"));
+		outConverter.setHeaderNames("bar");
 		MessageConvertingTcpMessageMapper outMapper = new MessageConvertingTcpMessageMapper(outConverter);
 		outboundConnection.setMapper(outMapper);
 		outboundConnection.setSerializer(new MapJsonSerializer());
