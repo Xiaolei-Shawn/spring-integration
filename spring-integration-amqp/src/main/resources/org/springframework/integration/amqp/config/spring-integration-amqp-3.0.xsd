@@ -193,6 +193,9 @@
 			which itself is a Map.
 			This can only be provided if the 'header-mapper' reference is not being set directly. The values in
 			this list can also be simple patterns to be matched against the header names (e.g. "foo*" or "*foo").
+			A special header name 'STANDARD_REPLY_HEADERS', which causes all the standard amqp headers to be
+			mapped, is the default. This must be included with any other headers if you wish the standard headers
+			to be mapped as well.
 								]]></xsd:documentation>
 						</xsd:annotation>
 					</xsd:attribute>
@@ -243,6 +246,9 @@
 	which itself is a Map.
 	This can only be provided if the 'header-mapper' reference is not being set directly. The values in
 	this list can also be simple patterns to be matched against the header names (e.g. "foo*" or "*foo").
+	A special header name 'STANDARD_REPLY_HEADERS', which causes all the standard amqp headers to be
+	mapped, is the default. This must be included with any other headers if you wish the standard headers
+	to be mapped as well.
 							]]></xsd:documentation>
 						</xsd:annotation>
 					</xsd:attribute>
@@ -419,9 +425,10 @@ The order for this consumer when multiple consumers are registered thereby enabl
 		<xsd:attribute name="header-mapper" type="xsd:string">
 			<xsd:annotation>
 				<xsd:documentation><![CDATA[
-The reference to the 'AmqpHeaderMapper' implementation bean to map AMQP Headers from the AMQP request into the MessageHeaders
-and from the Spring Integration MessageHeaders to the AMQP Headers.
+Reference to a bean implementing 'AmqpHeaderMapper' that maps Spring Integration MessageHeaders to/from
+AMQP Message properties.
 This is mutually exclusive with 'mapped-request-headers' or 'mapped-reply-headers'.
+Default: DefaultAmqpHeaderMapper.
 						]]></xsd:documentation>
 				<xsd:appinfo>
 					<tool:annotation kind="ref">
@@ -436,6 +443,9 @@ This is mutually exclusive with 'mapped-request-headers' or 'mapped-reply-header
 Comma-separated list of names of AMQP Headers to be mapped from the AMQP request into the MessageHeaders.
 This can only be provided if the 'header-mapper' reference is not being set directly. The values in
 this list can also be simple patterns to be matched against the header names (e.g. "foo*" or "*foo").
+A special header name 'STANDARD_REQUEST_HEADERS', which causes all the standard amqp headers to be
+mapped, is the default. This must be included with any other headers if you wish the standard headers
+to be mapped as well.
 						]]></xsd:documentation>
 			</xsd:annotation>
 		</xsd:attribute>
@@ -484,9 +494,10 @@ property set to TRUE.
 		<xsd:attribute name="header-mapper" type="xsd:string">
 			<xsd:annotation>
 				<xsd:documentation><![CDATA[
-The reference to the 'AmqpHeaderMapper' implementation bean to map AMQP Headers from the AMQP request into the MessageHeaders
-and from the Spring Integration MessageHeaders to the AMQP Headers.
+Reference to a bean implementing 'AmqpHeaderMapper' that maps Spring Integration MessageHeaders to/from
+AMQP Message properties.
 This is mutually exclusive with 'mapped-request-headers' or 'mapped-reply-headers'.
+Default: DefaultAmqpHeaderMapper.
 						]]></xsd:documentation>
 				<xsd:appinfo>
 					<tool:annotation kind="ref">
@@ -501,6 +512,9 @@ This is mutually exclusive with 'mapped-request-headers' or 'mapped-reply-header
 Comma-separated list of names of AMQP Headers to be mapped from the AMQP request into the MessageHeaders.
 This can only be provided if the 'header-mapper' reference is not being set directly. The values in
 this list can also be simple patterns to be matched against the header names (e.g. "foo*" or "*foo").
+A special header name 'STANDARD_REQUEST_HEADERS', which causes all the standard amqp headers to be
+mapped, is the default. This must be included with any other headers if you wish the standard headers
+to be mapped as well.
 						]]></xsd:documentation>
 			</xsd:annotation>
 		</xsd:attribute>
