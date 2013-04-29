@@ -24,7 +24,7 @@ import org.springframework.util.ClassUtils;
  * Transformer implementation that converts a JSON string payload into an instance of the provided target Class.
  * By default this transformer uses {@linkplain JacksonJsonObjectMapperProvider} factory
  * to get an instance of Jackson 1 or Jackson 2 JSON-processor {@linkplain JsonObjectMapper} implementation
- * dependently of jackson-databind or jackson-mapper-asl libs in the classpath.
+ * depending on the jackson-databind or jackson-mapper-asl libs on the classpath.
  * Any other {@linkplain JsonObjectMapper} implementation can be provided.
  *
  * @author Mark Fisher
@@ -44,6 +44,8 @@ public class JsonToObjectTransformer<T> extends AbstractPayloadTransformer<Strin
 	}
 
 	/**
+	 * Backward compatibility - allows existing configurations using Jackson 1.x to inject
+	 * an ObjectMapper directly.
 	 * @deprecated in favor of {@link #JsonToObjectTransformer(Class, JsonObjectMapper)}
 	 */
 	@Deprecated
@@ -65,12 +67,13 @@ public class JsonToObjectTransformer<T> extends AbstractPayloadTransformer<Strin
 		}
 	}
 
-	public JsonToObjectTransformer(Class<T> targetClass, JsonObjectMapper jsonObjectMapper) {
+	public JsonToObjectTransformer(Class<T> targetClass, JsonObjectMapper<?> jsonObjectMapper) {
 		Assert.notNull(targetClass, "targetClass must not be null");
 		this.targetClass = targetClass;
 		this.jsonObjectMapper = (jsonObjectMapper != null) ? jsonObjectMapper : JacksonJsonObjectMapperProvider.newInstance();
 	}
 
+	@Override
 	protected T transformPayload(String payload) throws Exception {
 		return this.jsonObjectMapper.fromJson(payload, this.targetClass);
 	}

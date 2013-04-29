@@ -259,7 +259,7 @@ public class ObjectToJsonTransformerParserTests {
 		}
 	}
 
-	static class CustomJsonObjectMapper extends JsonObjectMapperAdapter {
+	static class CustomJsonObjectMapper extends JsonObjectMapperAdapter<Object> {
 
 		@Override
 		public String toJson(Object value) throws Exception {

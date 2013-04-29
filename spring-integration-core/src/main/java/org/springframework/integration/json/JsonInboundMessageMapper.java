@@ -34,7 +34,7 @@ import org.springframework.integration.Message;
  * @author Artem Bilan
  * @since 2.0
  */
-public class JsonInboundMessageMapper extends AbstractJsonInboundMessageMapper<JsonInboundMessageMapper.JsonMessageParser> {
+public class JsonInboundMessageMapper extends AbstractJsonInboundMessageMapper<JsonInboundMessageMapper.JsonMessageParser<?>> {
 
 	private volatile JsonMessageParser<?> messageParser;
 
@@ -72,13 +72,13 @@ public class JsonInboundMessageMapper extends AbstractJsonInboundMessageMapper<J
 	}
 
 	@Override
-	protected Map<String, Object> readHeaders(JsonMessageParser parser, String jsonMessage) throws Exception {
+	protected Map<String, Object> readHeaders(JsonMessageParser<?> parser, String jsonMessage) throws Exception {
 		//No-op
 		return null;
 	}
 
 	@Override
-	protected Object readPayload(JsonMessageParser parser, String jsonMessage) throws Exception {
+	protected Object readPayload(JsonMessageParser<?> parser, String jsonMessage) throws Exception {
 		//No-op
 		return null;
 	}

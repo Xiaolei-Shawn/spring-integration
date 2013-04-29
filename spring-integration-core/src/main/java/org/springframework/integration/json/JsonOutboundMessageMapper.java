@@ -31,13 +31,13 @@ public class JsonOutboundMessageMapper implements OutboundMessageMapper<String> 
 
 	private volatile boolean shouldExtractPayload = false;
 
-	private volatile JsonObjectMapper jsonObjectMapper;
+	private volatile JsonObjectMapper<?> jsonObjectMapper;
 
 	public JsonOutboundMessageMapper() {
 		this(JacksonJsonObjectMapperProvider.newInstance());
 	}
 
-	public JsonOutboundMessageMapper(JsonObjectMapper jsonObjectMapper) {
+	public JsonOutboundMessageMapper(JsonObjectMapper<?> jsonObjectMapper) {
 		Assert.notNull(jsonObjectMapper, "jsonObjectMapper must not be null");
 		this.jsonObjectMapper = jsonObjectMapper;
 	}

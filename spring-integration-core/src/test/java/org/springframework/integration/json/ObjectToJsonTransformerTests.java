@@ -139,6 +139,7 @@ public class ObjectToJsonTransformerTests {
 		assertTrue(addressResult.contains("street:\"Main Street\""));
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test(expected = IllegalArgumentException.class)
 	public void testInt2831IllegalArgument() throws Exception {
 		new ObjectToJsonTransformer(new Object());
@@ -147,11 +148,11 @@ public class ObjectToJsonTransformerTests {
 	@SuppressWarnings("unused")
 	private static class TestPerson {
 
-		private String firstName;
+		private final String firstName;
 
-		private String lastName;
+		private final String lastName;
 
-		private int age;
+		private final int age;
 
 		private TestAddress address;
 
@@ -187,9 +188,9 @@ public class ObjectToJsonTransformerTests {
 	@SuppressWarnings("unused")
 	private static class TestAddress {
 
-		private int number;
+		private final int number;
 
-		private String street;
+		private final String street;
 
 
 		public TestAddress(int number, String street) {

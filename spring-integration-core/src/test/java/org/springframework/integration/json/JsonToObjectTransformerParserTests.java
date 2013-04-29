@@ -24,7 +24,6 @@ import org.codehaus.jackson.JsonParser.Feature;
 import org.codehaus.jackson.map.ObjectMapper;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.integration.Message;
@@ -70,7 +69,7 @@ public class JsonToObjectTransformerParserTests {
 	private ObjectMapper customObjectMapper;
 
 	@Autowired
-	private JsonObjectMapper jsonObjectMapper;
+	private JsonObjectMapper<?> jsonObjectMapper;
 
 	@Test
 	public void defaultObjectMapper() {
@@ -95,7 +94,7 @@ public class JsonToObjectTransformerParserTests {
 	@Test
 	public void customObjectMapper() {
 		Object jsonToObjectTransformer = TestUtils.getPropertyValue(this.customJacksonMapperTransformer, "transformer");
-		JsonObjectMapper jsonObjectMapper = TestUtils.getPropertyValue(jsonToObjectTransformer, "jsonObjectMapper", JsonObjectMapper.class);
+		JsonObjectMapper<?> jsonObjectMapper = TestUtils.getPropertyValue(jsonToObjectTransformer, "jsonObjectMapper", JsonObjectMapper.class);
 		assertSame(this.customObjectMapper, TestUtils.getPropertyValue(jsonObjectMapper, "objectMapper"));
 
 		String jsonString = "{firstName:'John', lastName:'Doe', age:42, address:{number:123, street:'Main Street'}}";
@@ -212,6 +211,7 @@ public class JsonToObjectTransformerParserTests {
 		}
 	}
 
+	@SuppressWarnings("rawtypes")
 	static class CustomJsonObjectMapper extends JsonObjectMapperAdapter {
 
 		@Override

@@ -55,6 +55,7 @@ public class JsonToObjectTransformerTests {
 		assertEquals("123 Main Street", person.getAddress().toString());
 	}
 
+	@SuppressWarnings("deprecation")
 	@Test(expected = IllegalArgumentException.class)
 	public void testInt2831IllegalArgument() throws Exception {
 		new JsonToObjectTransformer<String>(String.class, new Object());

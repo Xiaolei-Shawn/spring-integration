@@ -29,7 +29,6 @@ import java.util.UUID;
 import org.hamcrest.Factory;
 import org.hamcrest.Matcher;
 import org.junit.Test;
-
 import org.springframework.integration.Message;
 import org.springframework.integration.message.MessageMatcher;
 import org.springframework.integration.support.MessageBuilder;
@@ -42,7 +41,7 @@ import org.springframework.integration.support.MessageBuilder;
  */
 public class JsonInboundMessageMapperTests {
 
-	private JsonObjectMapper mapper = JacksonJsonObjectMapperProvider.newInstance();
+	private final JsonObjectMapper<?> mapper = JacksonJsonObjectMapperProvider.newInstance();
 
 	@Factory
     public static Matcher<Message<?>> sameExceptImmutableHeaders(Message<?> operand) {
