@@ -32,14 +32,8 @@ public class ApacheCommonsFileTailingMessageProducer extends FileTailingMessageP
 
 	private volatile long pollingDelay = 1000;
 
-	private volatile long missingFileDelay = 5000;
-
 	public void setPollingDelay(long pollingDelay) {
 		this.pollingDelay = pollingDelay;
-	}
-
-	public void setMissingFileDelay(long missingFileDelay) {
-		this.missingFileDelay = missingFileDelay;
 	}
 
 	@Override
@@ -69,7 +63,7 @@ public class ApacheCommonsFileTailingMessageProducer extends FileTailingMessageP
 	public void fileNotFound() {
 		this.publish("File not found:" + this.getFile().getAbsolutePath());
 		try {
-			Thread.sleep(this.missingFileDelay);
+			Thread.sleep(this.getMissingFileDelay());
 		}
 		catch (InterruptedException e) {
 			Thread.currentThread().interrupt();

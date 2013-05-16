@@ -24,6 +24,7 @@ import org.springframework.integration.MessageChannel;
 import org.springframework.integration.file.tail.ApacheCommonsFileTailingMessageProducer;
 import org.springframework.integration.file.tail.FileTailingMessageProducerSupport;
 import org.springframework.integration.file.tail.OSDelegatingFileTailingMessageProducer;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.util.Assert;
 
 /**
@@ -39,6 +40,8 @@ public class FileTailInboundChannelAdapterFactoryBean extends AbstractFactoryBea
 	private volatile File file;
 
 	private volatile TaskExecutor taskExecutor;
+
+	private volatile TaskScheduler taskScheduler;
 
 	private volatile Long delay;
 
@@ -64,6 +67,10 @@ public class FileTailInboundChannelAdapterFactoryBean extends AbstractFactoryBea
 
 	public void setTaskExecutor(TaskExecutor taskExecutor) {
 		this.taskExecutor = taskExecutor;
+	}
+
+	public void setTaskScheduler(TaskScheduler taskScheduler) {
+		this.taskScheduler = taskScheduler;
 	}
 
 	public void setDelay(long delay) {
@@ -117,6 +124,9 @@ public class FileTailInboundChannelAdapterFactoryBean extends AbstractFactoryBea
 		}
 		adapter.setFile(this.file);
 		adapter.setTaskExecutor(this.taskExecutor);
+		if (this.taskScheduler != null) {
+			adapter.setTaskScheduler(this.taskScheduler);
+		}
 		adapter.setOutputChannel(outputChannel);
 		adapter.setBeanName(this.beanName);
 		if (this.autoStartup != null) {

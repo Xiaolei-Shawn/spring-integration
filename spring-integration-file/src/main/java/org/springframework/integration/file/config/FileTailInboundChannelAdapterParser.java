@@ -35,10 +35,14 @@ public class FileTailInboundChannelAdapterParser extends AbstractChannelAdapterP
 	protected AbstractBeanDefinition doParse(Element element, ParserContext parserContext, String channelName) {
 		BeanDefinitionBuilder builder = BeanDefinitionBuilder.rootBeanDefinition(FileTailInboundChannelAdapterFactoryBean.class);
 
-		if (element.hasAttribute("native-command")) {
-			if (element.hasAttribute("delay") || element.hasAttribute("file-delay")) {
+		if (element.hasAttribute("delay")) {
+			if (element.hasAttribute("native-options")) {
 				parserContext.getReaderContext().error(
-						"You cannot have 'delay' or 'file-delay' if 'native-command' is provided", element);
+						"You cannot have 'native-options' if 'delay' is provided", element);
+			}
+			if (element.hasAttribute("task-scheduler")) {
+				parserContext.getReaderContext().error(
+						"You cannot have 'task-scheduler' if 'delay' is provided", element);
 			}
 		}
 
@@ -48,6 +52,7 @@ public class FileTailInboundChannelAdapterParser extends AbstractChannelAdapterP
 		IntegrationNamespaceUtils.setValueIfAttributeDefined(builder, element, "native-options");
 		IntegrationNamespaceUtils.setValueIfAttributeDefined(builder, element, "file");
 		IntegrationNamespaceUtils.setReferenceIfAttributeDefined(builder, element, "task-executor");
+		IntegrationNamespaceUtils.setReferenceIfAttributeDefined(builder, element, "task-scheduler");
 		IntegrationNamespaceUtils.setValueIfAttributeDefined(builder, element, "delay");
 		IntegrationNamespaceUtils.setValueIfAttributeDefined(builder, element, "file-delay");
 		IntegrationNamespaceUtils.setValueIfAttributeDefined(builder, element, "auto-startup");

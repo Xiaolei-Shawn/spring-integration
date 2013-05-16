@@ -44,6 +44,7 @@ public abstract class FileTailingMessageProducerSupport extends MessageProducerS
 
 	private volatile TaskExecutor taskExecutor = new SimpleAsyncTaskExecutor();
 
+	private volatile long missingFileDelay = 5000;
 
 	@Override
 	public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
@@ -65,6 +66,19 @@ public abstract class FileTailingMessageProducerSupport extends MessageProducerS
 	public void setTaskExecutor(TaskExecutor taskExecutor) {
 		Assert.notNull("'taskExecutor' cannot be null");
 		this.taskExecutor = taskExecutor;
+	}
+
+	/**
+	 * The delay in milliseconds between attempts to tail a non-existent file.
+	 * @param missingFileDelay the delay.
+	 */
+	public void setMissingFileDelay(long missingFileDelay) {
+		Assert.isTrue(missingFileDelay > 0, "'missingFileDelay' must be > 0");
+		this.missingFileDelay = missingFileDelay;
+	}
+
+	protected long getMissingFileDelay() {
+		return missingFileDelay;
 	}
 
 	protected TaskExecutor getTaskExecutor() {

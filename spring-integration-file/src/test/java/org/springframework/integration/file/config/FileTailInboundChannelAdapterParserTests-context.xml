@@ -20,6 +20,7 @@
 		channel="input"
 		native-options="-F -n 6"
 		task-executor="exec"
+		task-scheduler="sched"
 		file="/tmp/foo"
 		auto-startup="false"
 		phase="123" />
@@ -36,4 +37,6 @@
 	<int:channel id="input" />
 	
 	<task:executor id="exec" />
+
+	<task:scheduler id="sched" />
 </beans>

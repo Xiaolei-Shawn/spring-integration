@@ -30,6 +30,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.integration.file.tail.ApacheCommonsFileTailingMessageProducer;
 import org.springframework.integration.file.tail.OSDelegatingFileTailingMessageProducer;
 import org.springframework.integration.test.util.TestUtils;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -54,6 +55,12 @@ public class FileTailInboundChannelAdapterParserTests {
 	@Autowired
 	private TaskExecutor exec;
 
+	@Autowired
+	private TaskScheduler sched;
+
+	@Autowired
+	private TaskScheduler taskScheduler;
+
 	@Test
 	public void testDefault() {
 		assertEquals("tail -F -n 0 /tmp/baz", TestUtils.getPropertyValue(defaultAdapter, "command"));
@@ -68,6 +75,7 @@ public class FileTailInboundChannelAdapterParserTests {
 		assertEquals("tail -F -n 6 /tmp/foo", TestUtils.getPropertyValue(nativeAdapter, "command"));
 		assertEquals("/tmp/foo", TestUtils.getPropertyValue(nativeAdapter, "file", File.class).getAbsolutePath());
 		assertSame(exec, TestUtils.getPropertyValue(nativeAdapter, "taskExecutor"));
+		assertSame(sched, TestUtils.getPropertyValue(nativeAdapter, "taskScheduler"));
 		assertFalse(TestUtils.getPropertyValue(nativeAdapter, "autoStartup", Boolean.class));
 		assertEquals(123, TestUtils.getPropertyValue(nativeAdapter, "phase"));
 	}

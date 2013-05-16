@@ -18,8 +18,11 @@ package org.springframework.integration.file.tail;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.Date;
 
 import org.springframework.integration.MessagingException;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.util.Assert;
 
 /**
@@ -41,6 +44,8 @@ public class OSDelegatingFileTailingMessageProducer extends FileTailingMessagePr
 	private volatile String command = "ADAPTER_NOT_INITIALIZED";
 
 	private volatile BufferedReader reader;
+
+	private volatile TaskScheduler scheduler;
 
 	public void setOptions(String options) {
 		if (options == null) {
@@ -67,7 +72,13 @@ public class OSDelegatingFileTailingMessageProducer extends FileTailingMessagePr
 	protected void doStart() {
 		super.doStart();
 		destroyProcess();
-		this.runExec();
+		this.getTaskExecutor().execute(new Runnable() {
+
+			@Override
+			public void run() {
+				runExec();
+			}
+		});
 	}
 
 	@Override
@@ -91,8 +102,8 @@ public class OSDelegatingFileTailingMessageProducer extends FileTailingMessagePr
 			Process process = Runtime.getRuntime().exec(this.command);
 			BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
 			this.process = process;
-			this.startStatusReader();
 			this.startProcessMonitor();
+			this.startStatusReader();
 			this.reader = reader;
 			this.getTaskExecutor().execute(this);
 		}
@@ -101,6 +112,18 @@ public class OSDelegatingFileTailingMessageProducer extends FileTailingMessagePr
 		}
 	}
 
+	private TaskScheduler getRequiredTaskScheduler() {
+		if (this.scheduler == null) {
+			TaskScheduler taskScheduler = super.getTaskScheduler();
+			if (taskScheduler == null) {
+				ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
+				scheduler.initialize();
+				taskScheduler = scheduler;
+			}
+			this.scheduler = taskScheduler;
+		}
+		return this.scheduler;
+	}
 	/**
 	 * Runs a thread that waits for the Process result.
 	 */
@@ -128,8 +151,14 @@ public class OSDelegatingFileTailingMessageProducer extends FileTailingMessagePr
 					}
 				}
 				if (isRunning()) {
-					logger.info("Restarting tail process");
-					runExec();
+					logger.info("Restarting tail process in " + getMissingFileDelay() + " milliseconds");
+					getRequiredTaskScheduler().schedule(new Runnable() {
+
+						@Override
+						public void run() {
+							runExec();
+						}
+					}, new Date(System.currentTimeMillis() + getMissingFileDelay()));
 				}
 			}
 		});
@@ -188,8 +217,10 @@ public class OSDelegatingFileTailingMessageProducer extends FileTailingMessagePr
 			catch (IOException e1) {
 
 			}
-			this.process.destroy();
-			process = null;
+			if (this.process != null) {
+				this.process.destroy();
+				process = null;
+			}
 		}
 	}
 
