@@ -30,6 +30,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.integration.file.tail.ApacheCommonsFileTailingMessageProducer;
 import org.springframework.integration.file.tail.OSDelegatingFileTailingMessageProducer;
 import org.springframework.integration.test.util.TestUtils;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
@@ -49,10 +50,19 @@ public class FileTailInboundChannelAdapterParserTests {
 	private OSDelegatingFileTailingMessageProducer nativeAdapter;
 
 	@Autowired
-	private ApacheCommonsFileTailingMessageProducer apacheAdapter;
+	private ApacheCommonsFileTailingMessageProducer apacheDefault;
+
+	@Autowired
+	private ApacheCommonsFileTailingMessageProducer apacheEndReopen;
 
 	@Autowired
 	private TaskExecutor exec;
+
+	@Autowired
+	private TaskScheduler sched;
+
+	@Autowired
+	private TaskScheduler taskScheduler;
 
 	@Test
 	public void testDefault() {
@@ -68,18 +78,34 @@ public class FileTailInboundChannelAdapterParserTests {
 		assertEquals("tail -F -n 6 /tmp/foo", TestUtils.getPropertyValue(nativeAdapter, "command"));
 		assertEquals("/tmp/foo", TestUtils.getPropertyValue(nativeAdapter, "file", File.class).getAbsolutePath());
 		assertSame(exec, TestUtils.getPropertyValue(nativeAdapter, "taskExecutor"));
+		assertSame(sched, TestUtils.getPropertyValue(nativeAdapter, "taskScheduler"));
 		assertFalse(TestUtils.getPropertyValue(nativeAdapter, "autoStartup", Boolean.class));
 		assertEquals(123, TestUtils.getPropertyValue(nativeAdapter, "phase"));
+		assertEquals(456L, TestUtils.getPropertyValue(nativeAdapter, "missingFileDelay"));
 	}
 
 	@Test
-	public void testApache() {
-		assertEquals("/tmp/bar", TestUtils.getPropertyValue(apacheAdapter, "file", File.class).getAbsolutePath());
-		assertSame(exec, TestUtils.getPropertyValue(apacheAdapter, "taskExecutor"));
-		assertEquals(2000L, TestUtils.getPropertyValue(apacheAdapter, "pollingDelay"));
-		assertEquals(10000L, TestUtils.getPropertyValue(apacheAdapter, "missingFileDelay"));
-		assertFalse(TestUtils.getPropertyValue(apacheAdapter, "autoStartup", Boolean.class));
-		assertEquals(123, TestUtils.getPropertyValue(apacheAdapter, "phase"));
+	public void testApacheDefault() {
+		assertEquals("/tmp/bar", TestUtils.getPropertyValue(apacheDefault, "file", File.class).getAbsolutePath());
+		assertSame(exec, TestUtils.getPropertyValue(apacheDefault, "taskExecutor"));
+		assertEquals(2000L, TestUtils.getPropertyValue(apacheDefault, "pollingDelay"));
+		assertEquals(10000L, TestUtils.getPropertyValue(apacheDefault, "missingFileDelay"));
+		assertFalse(TestUtils.getPropertyValue(apacheDefault, "autoStartup", Boolean.class));
+		assertEquals(123, TestUtils.getPropertyValue(apacheDefault, "phase"));
+		assertEquals(Boolean.TRUE, TestUtils.getPropertyValue(apacheDefault, "end"));
+		assertEquals(Boolean.FALSE, TestUtils.getPropertyValue(apacheDefault, "reopen"));
+	}
+
+	@Test
+	public void testApacheEndReopen() {
+		assertEquals("/tmp/bar", TestUtils.getPropertyValue(apacheEndReopen, "file", File.class).getAbsolutePath());
+		assertSame(exec, TestUtils.getPropertyValue(apacheEndReopen, "taskExecutor"));
+		assertEquals(2000L, TestUtils.getPropertyValue(apacheEndReopen, "pollingDelay"));
+		assertEquals(10000L, TestUtils.getPropertyValue(apacheEndReopen, "missingFileDelay"));
+		assertFalse(TestUtils.getPropertyValue(apacheEndReopen, "autoStartup", Boolean.class));
+		assertEquals(123, TestUtils.getPropertyValue(apacheEndReopen, "phase"));
+		assertEquals(Boolean.FALSE, TestUtils.getPropertyValue(apacheEndReopen, "end"));
+		assertEquals(Boolean.TRUE, TestUtils.getPropertyValue(apacheEndReopen, "reopen"));
 	}
 
 }
