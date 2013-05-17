@@ -28,7 +28,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.junit.Before;
 import org.junit.Test;
-
 import org.springframework.beans.DirectFieldAccessor;
 import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationEventPublisher;
@@ -59,13 +58,13 @@ public class FileTailingMessageProducerTests {
 	@Test
 	public void testOS() throws Exception {
 		OSDelegatingFileTailingMessageProducer adapter = new OSDelegatingFileTailingMessageProducer();
+		adapter.setOptions("-F -n 99999999");
 		testGuts(adapter, "reader");
 	}
 
 	@Test
 	public void testApache() throws Exception {
 		ApacheCommonsFileTailingMessageProducer adapter = new ApacheCommonsFileTailingMessageProducer();
-		adapter.setMissingFileDelay(500);
 		adapter.setPollingDelay(100);
 		testGuts(adapter, "tailer");
 	}
@@ -84,6 +83,7 @@ public class FileTailingMessageProducerTests {
 		adapter.setFile(new File(testDir, "foo"));
 		QueueChannel outputChannel = new QueueChannel();
 		adapter.setOutputChannel(outputChannel);
+		adapter.setMissingFileDelay(500);
 		adapter.afterPropertiesSet();
 		File file = new File(testDir, "foo");
 		File renamed = new File(testDir, "bar");
