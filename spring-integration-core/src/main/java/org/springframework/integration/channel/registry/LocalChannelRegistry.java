@@ -13,6 +13,11 @@
 
 package org.springframework.integration.channel.registry;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
@@ -39,11 +44,14 @@ import org.springframework.util.Assert;
  *
  * @author David Turanski
  * @author Mark Fisher
+ * @author Gary Russell
  * @since 3.0
  */
 public class LocalChannelRegistry implements ChannelRegistry, ApplicationContextAware, InitializingBean {
 
 	private volatile AbstractApplicationContext applicationContext;
+
+	private final List<BridgeMetadata> bridges = Collections.synchronizedList(new ArrayList<BridgeMetadata>());
 
 	@Override
 	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
@@ -67,7 +75,7 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 		Assert.hasText(name, "a valid name is required to register an inbound channel");
 		Assert.notNull(channel, "channel must not be null");
 		DirectChannel registeredChannel = lookupOrCreateSharedChannel(name, DirectChannel.class);
-		bridge(registeredChannel, channel);
+		bridge(registeredChannel, channel, registeredChannel.getComponentName() + ".in.bridge");
 		createSharedTapChannelIfNecessary(registeredChannel);
 	}
 
@@ -82,7 +90,7 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 		Assert.isTrue(channel instanceof SubscribableChannel,
 				"channel must be of type " + SubscribableChannel.class.getName());
 		DirectChannel registeredChannel = lookupOrCreateSharedChannel(name, DirectChannel.class);
-		bridge((SubscribableChannel) channel, registeredChannel);
+		bridge((SubscribableChannel) channel, registeredChannel, registeredChannel.getComponentName() + ".out.bridge");
 	}
 
 	/**
@@ -95,7 +103,7 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 		Assert.hasText(name, "a valid name is required to register a tap channel");
 		Assert.notNull(channel, "channel must not be null");
 		SubscribableChannel tapChannel = null;
-		String tapName = name + ".tap";
+		String tapName = "tap." + name;
 		try {
 			tapChannel = applicationContext.getBean(tapName, SubscribableChannel.class);
 		}
@@ -103,10 +111,34 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 			throw new IllegalArgumentException("No tap channel exists for '" + name
 					+ "'. A tap is only valid for a registered inbound channel.");
 		}
-		bridge(tapChannel, channel);
+		bridge(tapChannel, channel, tapName + ".bridge");
+	}
+
+
+	@Override
+	public void cleanAll(String name) {
+		Assert.hasText(name, "a valid name is required to clean a module");
+		synchronized(this.bridges) {
+			Iterator<BridgeMetadata> iterator = this.bridges.iterator();
+			while (iterator.hasNext()) {
+				BridgeMetadata bridge = iterator.next();
+				if (bridge.handler.getComponentName().startsWith(name)) {
+					bridge.channel.unsubscribe(bridge.handler);
+					iterator.remove();
+				}
+			}
+		}
 	}
 
 	protected synchronized <T extends AbstractMessageChannel> T lookupOrCreateSharedChannel(String name, Class<T> requiredType) {
+		T channel = lookupSharedChannel(name, requiredType);
+		if (channel == null) {
+			channel = createSharedChannel(name, requiredType);
+		}
+		return channel;
+	}
+
+	protected synchronized <T extends AbstractMessageChannel> T lookupSharedChannel(String name, Class<T> requiredType) {
 		T channel = null;
 		if (applicationContext.containsBean(name)) {
 			try {
@@ -116,9 +148,6 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 				throw new IllegalArgumentException("bean '" + name
 						+ "' is already registered but does not match the required type");
 			}
-		}
-		else {
-			channel = createSharedChannel(name, requiredType);
 		}
 		return channel;
 	}
@@ -139,7 +168,7 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 	}
 
 	private synchronized void createSharedTapChannelIfNecessary(AbstractMessageChannel channel) {
-		String tapName = channel.getComponentName() + ".tap";
+		String tapName = "tap." + channel.getComponentName();
 		PublishSubscribeChannel tapChannel = null;
 		if (!applicationContext.containsBean(tapName)) {
 			tapChannel = createSharedChannel(tapName, PublishSubscribeChannel.class);
@@ -157,12 +186,24 @@ public class LocalChannelRegistry implements ChannelRegistry, ApplicationContext
 		}
 	}
 
-	protected BridgeHandler bridge(SubscribableChannel from, MessageChannel to) {
+	protected BridgeHandler bridge(SubscribableChannel from, MessageChannel to, String bridgeName) {
 		BridgeHandler handler = new BridgeHandler();
 		handler.setOutputChannel(to);
+		handler.setBeanName(bridgeName);
 		handler.afterPropertiesSet();
 		from.subscribe(handler);
+		this.bridges.add(new BridgeMetadata(handler, from));
 		return handler;
 	}
 
+	private class BridgeMetadata {
+		private final BridgeHandler handler;
+		private final SubscribableChannel channel;
+
+		public BridgeMetadata(BridgeHandler handler, SubscribableChannel channel) {
+			this.handler = handler;
+			this.channel = channel;
+		}
+
+	}
 }

@@ -22,6 +22,7 @@ import org.springframework.integration.MessageChannel;
  *
  * @author Mark Fisher
  * @author David Turanski
+ * @author Gary Russell
  * @since 3.0
  */
 public interface ChannelRegistry {
@@ -47,4 +48,10 @@ public interface ChannelRegistry {
 	 */
 	void tap(String name, MessageChannel channel);
 
+	/**
+	 * Remove all subscriptions to inter-module channels for this module
+	 * and stop any active components that use those channels.
+	 * @param name the module name
+	 */
+	void cleanAll(String name);
 }
